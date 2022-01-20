@@ -1,3 +1,6 @@
 proc main in
-	ret 0
+    int x = 3
+    int y = 5
+    
+    ret 0
 end

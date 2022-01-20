@@ -34,13 +34,6 @@ export default function tokenize(text) {
 	return toks;
 }
 
-function token(type, val) {
-	return {
-		type: type,
-		val: val
-	}
-}
-
 // From: https://stackoverflow.com/questions/14636536/how-to-check-if-a-variable-is-an-integer-in-javascript
 function isInt(str) {
 	let x = parseFloat(str);
