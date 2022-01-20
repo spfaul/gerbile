@@ -1,12 +1,15 @@
 {
-  "name": "betterasm",
+  "name": "gerbile",
   "version": "1.0.0",
-  "description": "random language that compiles to asm",
+  "description": "General purpose programming language for x86_64 Linux",
   "main": "index.js",
   "scripts": {
-	"com": "node index.js"
+    "com": "node index.js"
   },
   "type": "module",
   "author": "",
-  "license": "GPL-2.0-only"
+  "license": "GPL-2.0-only",
+  "dependencies": {
+    "shelljs": "^0.8.5"
+  }
 }
