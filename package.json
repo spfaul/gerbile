@@ -1,0 +1,12 @@
+{
+  "name": "betterasm",
+  "version": "1.0.0",
+  "description": "random language that compiles to asm",
+  "main": "index.js",
+  "scripts": {
+	"com": "node index.js"
+  },
+  "type": "module",
+  "author": "",
+  "license": "GPL-2.0-only"
+}

@@ -1,0 +1,5 @@
+proc main in
+    int x = 3
+    x = 4
+    ret 69
+end
