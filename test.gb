@@ -1,5 +1,10 @@
-proc main in
+proc main do
     int x = 3
-    x = 4
+
+    if x is 3 do
+        
+    end
+        
+    
     ret 69
 end
