@@ -12,6 +12,7 @@ export default function parse(toks) {
 	let contexts = [];
 	let identifiers = [];
 	let return_addrs = [];
+    let curr_func_def = null;
 	let var_map = new Map();
 	let var_offset = 0;
 	let addr_count = 0;
@@ -20,21 +21,25 @@ export default function parse(toks) {
 
 		switch (tok.type) {
 			case TOK_TYPE.FUNC:
+			    assert(curr_func_def == null, "Cannot define subproc inside proc");
 				let func_name = toks.shift();
 				text += `${func_name.val}:\n`;
-				contexts.push({type: TOK_TYPE.FUNC, val: func_name.val});
+                curr_func_def = func_name.val;
 				break;
 			case TOK_TYPE.DEF_OPEN:
-			    if (contexts.at(-1).type !== TOK_TYPE.FUNC) {
-                    text += `addr_${addr_count}:\n`;			        
-			    }
 				contexts.push({type: TOK_TYPE.DEF_OPEN, val: null});
 				break;
+			case TOK_TYPE.BRANCH_OPEN:
+			    if (curr_func_def !== null) {
+                    text += `addr_${addr_count}:\n`;
+                    addr_count += 1;			        
+			    }
+				contexts.push({type: TOK_TYPE.BRANCH_OPEN, val: null});
+			    break;
 			case TOK_TYPE.DEF_CLOSE:
+			    assert(contexts.length > 0, "Unmatched parenthesis!");
 			    let open = contexts.pop()
-				if (open.type !== TOK_TYPE.FUNC && open.type !== TOK_TYPE.DEF_OPEN) {
-					throw new Error(`Unmatched parenthesis, got ${open.type}!`);
-				}
+			    assert(open.type === TOK_TYPE.DEF_OPEN || open.type === TOK_TYPE.BRANCH_OPEN, `Unmatched parenthesis, got ${open.type}!`);
 				if (return_addrs.length > 0) {
 			        let gobacktothisaddr = return_addrs.pop()
 				    text += `    jmp addr_${gobacktothisaddr}\n` +
@@ -72,16 +77,16 @@ export default function parse(toks) {
 			    var_offset += 4;
 			    break;
 			case TOK_TYPE.RETURN:
-			    let popped = contexts.pop();
-			    assert(popped !== undefined, "Stray Return!");
-			    assert(popped.type === TOK_TYPE.DEF_OPEN, "Invalid Syntax!");
-				if (contexts.at(-1).val === "main") {
+			    assert(contexts.length > 0, "Stray Return!");
+			    assert(curr_func_def !== null, "Cannot return outside of function");
+				if (curr_func_def === "main") {
 					text += "    mov rax, 60\n" +
 							`    mov rdi, ${toks[0].type == TOK_TYPE.INT ? toks[0].val : 69420}\n` + 
 							"    syscall\n";
-                    break;
+				} else {
+                 text += "    ret\n";
 				}
-	            text += "    ret\n";
+                
 				break;
             case TOK_TYPE.IF:
                 let operand_a = toks.shift();
@@ -105,9 +110,10 @@ export default function parse(toks) {
                     text += `    mov ecx, ${operand_b.val}\n`;
                 }
                 return_addrs.push(addr_count);
-                addr_count += 1;
                 text += `    cmp edx, ecx\n` +
+                        `    je addr_${addr_count+1}\n` +
                         `    jmp addr_${addr_count}\n`;
+                addr_count += 1;
                 break;
 		}
 	}

@@ -3,6 +3,7 @@ const WHITESPACE = ["\n", "\t", " "];
 export const TOK_TYPE = {
 	FUNC: "FUNC",
 	DEF_OPEN: "DEF_OPEN",
+	BRANCH_OPEN: "BRANCH_OPEN",
 	DEF_CLOSE: "DEF_CLOSE",
 	PUSH: "PUSH",
 	INT_TYPE: "INT_TYPE",
@@ -52,8 +53,10 @@ function scanToken(text) {
 	switch (text) {
 		case "proc":
 			return {type: TOK_TYPE.FUNC, val: null};
+		case "in":
+			return {type: TOK_TYPE.DEF_OPEN, val: null};		
 		case "do":
-			return {type: TOK_TYPE.DEF_OPEN, val: null};
+			return {type: TOK_TYPE.BRANCH_OPEN, val: null};
 		case "end":
 			return {type: TOK_TYPE.DEF_CLOSE, val: null};
 		case "int":
