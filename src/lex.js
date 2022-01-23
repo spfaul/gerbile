@@ -20,11 +20,22 @@ export const TOK_TYPE = {
 export default function tokenize(text) {
 	let toks = [];
 	let val = "";
+	let curr_line = 0;
+	let curr_char = 0;
 
 	for (let c of text) {
+        if (c == "\n") {
+            curr_line += 1;
+            curr_char = 0;
+        } else {
+            curr_char += 1;
+        }
+	
 		if (WHITESPACE.includes(c)) {
 			if (val) {
-				toks.push(scanToken(val));
+			    let tok = scanToken(val);
+			    tok.pos = curr_line + ":" + curr_char;
+				toks.push(tok);
 				val = "";
 			}
 		} else {
@@ -33,7 +44,9 @@ export default function tokenize(text) {
 	}
 
 	if (val) {
-		toks.push(scanToken(val));
+	    let tok = scanToken(val);
+        tok.pos = curr_line + ":" + curr_char;
+		toks.push(tok);
 	}
 
 	return toks;

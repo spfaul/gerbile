@@ -1,13 +1,5 @@
 proc main in
     int x = 3
-
-    if x is 3 do
-        int y = 4
-    end
-
-    if y is 4 do
-        ret 20
-    end
     
     ret 69
 end

@@ -1,4 +1,5 @@
 import { TOK_TYPE } from "./lex.js";
+import { compiler_error } from "./utils.js";
 import assert from "assert";
 
 export default function parse(toks) {
@@ -21,7 +22,7 @@ export default function parse(toks) {
 
 		switch (tok.type) {
 			case TOK_TYPE.FUNC:
-			    assert(curr_func_def == null, "Cannot define subproc inside proc");
+			    if (curr_func_def != null) compiler_error(tok, "Cannot define subproc inside proc");
 				let func_name = toks.shift();
 				text += `${func_name.val}:\n`;
                 curr_func_def = func_name.val;
