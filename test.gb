@@ -1,5 +1,4 @@
 proc main in
-    int x = 3
-    
+    int x = 9
     ret 69
 end

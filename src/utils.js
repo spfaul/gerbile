@@ -10,8 +10,8 @@ export function run_command(command, opts) {
     }
 }
 
-export function compiler_error(tok, msg) {
-    console.log(`[ERROR] ${tok.pos} - ${msg}`);
+export function compiler_error(pos, msg) {
+    console.log(`[ERROR] ${pos} - ${msg}`);
     error_count += 1;
 }
 

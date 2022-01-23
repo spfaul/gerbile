@@ -7,6 +7,8 @@ import process from "process";
 let text = readFileSync("./test.gb", {encoding:'utf8', flag:'r'}, (err, data) => {
 	if (err) console.error(err);
 })
+console.log(text);
+
 let toks = tokenize(text);
 console.log(toks);
 

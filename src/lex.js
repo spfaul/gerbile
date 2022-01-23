@@ -1,4 +1,4 @@
-const WHITESPACE = ["\n", "\t", " "];
+const WHITESPACE = ["\t", " ", "\n"];
 
 export const TOK_TYPE = {
 	FUNC: "FUNC",
@@ -19,35 +19,40 @@ export const TOK_TYPE = {
 
 export default function tokenize(text) {
 	let toks = [];
+	let curr_line_toks = [];
 	let val = "";
 	let curr_line = 0;
 	let curr_char = 0;
 
-	for (let c of text) {
-        if (c == "\n") {
-            curr_line += 1;
-            curr_char = 0;
-        } else {
-            curr_char += 1;
-        }
-	
+	for (let idx=0; idx<text.length; idx++) {
+        let c = text[idx];
+        curr_char += 1;
+
 		if (WHITESPACE.includes(c)) {
-			if (val) {
-			    let tok = scanToken(val);
-			    tok.pos = curr_line + ":" + curr_char;
-				toks.push(tok);
-				val = "";
-			}
+		    if (val) {
+                let tok = scanToken(val);
+                tok.pos = `${curr_line}:${curr_char - val.length}`;
+                curr_line_toks.push(tok);
+                val = "";
+		    }
+		} else if (idx == text.length - 1) {
+		    val += c;
+    	    let tok = scanToken(val);
+            tok.pos = `${curr_line}:${curr_char - val.length + 1}`;
+    		curr_line_toks.push(tok);
+            toks.push(curr_line_toks);
 		} else {
 			val += c;
 		}
+
+        if (c === "\n") {
+            toks.push(curr_line_toks);
+            curr_line_toks = [];
+            curr_line += 1;
+            curr_char = 0;
+        }
 	}
 
-	if (val) {
-	    let tok = scanToken(val);
-        tok.pos = curr_line + ":" + curr_char;
-		toks.push(tok);
-	}
 
 	return toks;
 }
