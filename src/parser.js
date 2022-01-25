@@ -74,12 +74,12 @@ export default function parse(toks) {
     			    break;
     			case TOK_TYPE.ASSIGN:
     			    let iden = identifiers.pop();
-    			    let value = eval_expr(text, line); // Get rest of line as expression 
+    			    let eval_instructs = eval_expr(line); // Get rest of line as expression 
+    			    text += eval_instructs;
     			    line = [] // Trigger next iteration
-    			    if (value === undefined) compiler_error(tok.pos, "Cannot assign unknown value");
     			    text += "    mov rax, [mem_ptr]\n" +
     			            `    add rax, ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}\n` +
-    			            `    mov dword[mem + rax], ${value.val}\n`;
+    			            `    mov dword[mem + rax], esi\n`;
     			    var_map.set(iden.val, {start: var_offset, size: 4});
     			    var_offset += 4;
     			    break;
@@ -100,7 +100,8 @@ export default function parse(toks) {
                     let operator = line.shift();
                     let operand_b = line.shift();
     			    assert(operand_a.type == TOK_TYPE.IDENTIFIER || operand_a.type == TOK_TYPE.INT, "Invalid operand type!");
-    			    assert(operand_b.type == TOK_TYPE.IDENTIFIER || operand_b.type == TOK_TYPE.INT, "Invalid operand type!");                
+    			    assert(operand_b.type == TOK_TYPE.IDENTIFIER || operand_b.type == TOK_TYPE.INT, "Invalid operand type!");
+                
                     assert(operator.type == TOK_TYPE.EQ, "Invalid Operator!");
                     if (operand_a.type == TOK_TYPE.IDENTIFIER) {
                         text += `    mov rax, [mem_ptr]\n` +
@@ -130,7 +131,59 @@ export default function parse(toks) {
 	return asm;
 }
 
-function eval_expr(code, expr_toks) {
-    // TODO: EVALUATE EXPRESSION VALUE AND STORE IN REGISTER
-    return {type: TOK_TYPE.INT, val: 12345};
+function eval_expr(expr_toks) {
+    let text = "";
+	let rpn_ordered_toks = shunting_yard(expr_toks);
+    console.log(rpn_ordered_toks);
+	
+    let res_stack = [];
+	for (let tok of rpn_ordered_toks) {
+		switch (tok.type) {
+			case TOK_TYPE.INT:
+			    res_stack.push(tok);
+		        break;
+		    case TOK_TYPE.ADD:
+		        if (res_stack.length < 2) compiler_error(tok.pos, `Expected 2 operands for operator ${tok.type}`);
+		        let arg_b = res_stack.pop();
+		        let arg_a = res_stack.pop();      
+                if (arg_a.type === TOK_TYPE.INT) {
+                    text += `    mov esi, ${arg_a.val}\n`;
+                }
+                if (arg_b.type === TOK_TYPE.INT) {
+                    text += `    mov edi, ${arg_b.val}\n`;
+                } else if (arg_b.type === "REF") {
+                    text += `    add esi, ${arg_a.val}\n`;
+                    break;
+                }
+                
+                text += `    add esi, edi\n`;
+                res_stack.push({type: "REF"});
+		        break;
+		}
+	}
+	return text;
 }
+
+function shunting_yard(toks) {
+	let out_stack = [];
+	let op_stack = [];
+
+	for (let tok of toks) {
+		switch (tok.type) {
+			case TOK_TYPE.ADD:
+				while (op_stack.length > 0 &&
+					   op_stack.at(-1).prec >= tok.prec) {
+					out_stack.push(op_stack.pop());		   	
+			   	}
+			   	op_stack.push(tok);
+			   	break;
+			case TOK_TYPE.INT:
+				out_stack.push(tok);
+				break;
+		}
+	}
+	op_stack.reverse();
+	out_stack = out_stack.concat(op_stack);
+	return out_stack;
+}
+

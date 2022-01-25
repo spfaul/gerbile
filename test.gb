@@ -1,4 +1,9 @@
 proc main in
-    int x = 9
+    int x = 6 add 3 add 3 
+
+    if x is 12 do
+        ret 68
+    end
+
     ret 69
 end

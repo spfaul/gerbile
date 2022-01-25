@@ -14,7 +14,8 @@ export const TOK_TYPE = {
 	LINEBREAK: "LINEBREAK",	
 	RETURN: "RETURN",
 	EQ: "EQ",
-	IF: "IF"
+	IF: "IF",
+	ADD: "ADD"
 }
 
 export default function tokenize(text) {
@@ -92,7 +93,9 @@ function scanToken(text) {
         case "if":
 		    return {type: TOK_TYPE.IF, val: null};
         case "^":
-            return {type: TOK_TYPE.PUSH, val: null};            
+            return {type: TOK_TYPE.PUSH, val: null};
+        case "add":
+            return {type: TOK_TYPE.ADD, val: null, prec: 1}  
 		default:
 			return {type: TOK_TYPE.IDENTIFIER, val: text};
 	}
