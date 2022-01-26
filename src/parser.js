@@ -80,8 +80,8 @@ export default function parse(toks) {
     			    text += "    mov rax, [mem_ptr]\n" +
     			            `    add rax, ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}\n` +
     			            `    mov qword[mem + rax], rsi\n`;
-    			    var_map.set(iden.val, {start: var_offset, size: 4});
-    			    var_offset += 4;
+    			    var_map.set(iden.val, {start: var_offset, size: 8});
+    			    var_offset += 8;
     			    break;
     			case TOK_TYPE.RETURN:
     			    assert(contexts.length > 0, "Stray Return!");
