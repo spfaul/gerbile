@@ -2,7 +2,7 @@ import { TOK_TYPE } from "./lex.js";
 import { compiler_error } from "./utils.js";
 import assert from "assert";
 
-const RAW_VALUES = [TOK_TYPE.INT, TOK_TYPE.IDENTIFIER];
+const RAW_VALUES = new Set([TOK_TYPE.INT]);
 
 export default function parse(toks) {
 	let asm = "format ELF64 executable 3\n";
@@ -79,7 +79,7 @@ export default function parse(toks) {
     			    line = [] // Trigger next iteration
     			    text += "    mov rax, [mem_ptr]\n" +
     			            `    add rax, ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}\n` +
-    			            `    mov dword[mem + rax], esi\n`;
+    			            `    mov qword[mem + rax], rsi\n`;
     			    var_map.set(iden.val, {start: var_offset, size: 4});
     			    var_offset += 4;
     			    break;
@@ -101,24 +101,24 @@ export default function parse(toks) {
                     let operand_b = line.shift();
     			    assert(operand_a.type == TOK_TYPE.IDENTIFIER || operand_a.type == TOK_TYPE.INT, "Invalid operand type!");
     			    assert(operand_b.type == TOK_TYPE.IDENTIFIER || operand_b.type == TOK_TYPE.INT, "Invalid operand type!");
-                
                     assert(operator.type == TOK_TYPE.EQ, "Invalid Operator!");
+                    
                     if (operand_a.type == TOK_TYPE.IDENTIFIER) {
                         text += `    mov rax, [mem_ptr]\n` +
                                 `    add rax, ${var_map.get(operand_a.val).start}\n` +
-                                `    mov edx, dword[mem + rax]\n`;
+                                `    mov rdx, qword[mem + rax]\n`;
                     } else {
-                        text += `    mov edx, ${operand_a.val}\n`;
+                        text += `    mov rdx, ${operand_a.val}\n`;
                     }
                     if (operand_b.type == TOK_TYPE.IDENTIFIER) {
                         text += "    mov rax, [mem_ptr]\n" +
                                 `    add rax, ${var_map.get(operand_b.val).start}\n` +
-                                `    mov ecx, dword[mem + rax]\n`;
+                                `    mov rcx, qword[mem + rax]\n`;
                     } else {
-                        text += `    mov ecx, ${operand_b.val}\n`;
+                        text += `    mov rcx, ${operand_b.val}\n`;
                     }
                     return_addrs.push(addr_count);
-                    text += `    cmp edx, ecx\n` +
+                    text += `    cmp rdx, rcx\n` +
                             `    je addr_${addr_count+1}\n` +
                             `    jmp addr_${addr_count}\n`;
                     addr_count += 1;
@@ -138,28 +138,45 @@ function eval_expr(expr_toks) {
 	
     let res_stack = [];
 	for (let tok of rpn_ordered_toks) {
-		switch (tok.type) {
-			case TOK_TYPE.INT:
-			    res_stack.push(tok);
-		        break;
-		    case TOK_TYPE.ADD:
-		        if (res_stack.length < 2) compiler_error(tok.pos, `Expected 2 operands for operator ${tok.type}`);
-		        let arg_b = res_stack.pop();
-		        let arg_a = res_stack.pop();      
-                if (arg_a.type === TOK_TYPE.INT) {
-                    text += `    mov esi, ${arg_a.val}\n`;
-                }
-                if (arg_b.type === TOK_TYPE.INT) {
-                    text += `    mov edi, ${arg_b.val}\n`;
-                } else if (arg_b.type === "REF") {
-                    text += `    add esi, ${arg_a.val}\n`;
+		if (RAW_VALUES.has(tok.type)) {
+            res_stack.push(tok);
+        } else if (tok.prec) { // Operator
+            if (res_stack.length < 2) compiler_error(tok.pos, `Expected 2 operands for operator ${tok.type}`);
+            let arg_b = res_stack.pop();
+            let arg_a = res_stack.pop();      
+            if (RAW_VALUES.has(arg_a.type)) {
+                text += `    mov rsi, ${arg_a.val}\n`;
+            } else if (arg_a.type === "REF") {
+                text += "    pop rsi\n";
+            }
+            if (RAW_VALUES.has(arg_b.type)) {
+                text += `    mov rdi, ${arg_b.val}\n`;
+            } else if (arg_b.type === "REF") {
+                text += "    pop rdi\n";
+                break;
+            }
+            switch (tok.type) {
+                case TOK_TYPE.ADD:
+                    text += "    add rsi, rdi\n";
                     break;
-                }
-                
-                text += `    add esi, edi\n`;
-                res_stack.push({type: "REF"});
-		        break;
-		}
+                case TOK_TYPE.SUB:
+                    text += "    sub rsi, rdi\n";
+                    break;
+                case TOK_TYPE.MULT:
+                    text += "    imul rsi, rdi\n";
+                    break;
+                case TOK_TYPE.DIV:
+                    text += "    push rax\n    push rdx\n" +
+                            "    mov rdx, 0\n" +
+                            "    mov rax, rsi\n" +
+                            "    idiv rdi\n" +
+                            "    mov rsi, rax\n" +
+                            "    pop rdx\n    pop rax\n";
+                    break;
+            }
+            text += "    push rsi\n";
+            res_stack.push({type: "REF"});
+        }
 	}
 	return text;
 }
@@ -169,18 +186,14 @@ function shunting_yard(toks) {
 	let op_stack = [];
 
 	for (let tok of toks) {
-		switch (tok.type) {
-			case TOK_TYPE.ADD:
-				while (op_stack.length > 0 &&
-					   op_stack.at(-1).prec >= tok.prec) {
-					out_stack.push(op_stack.pop());		   	
-			   	}
-			   	op_stack.push(tok);
-			   	break;
-			case TOK_TYPE.INT:
-				out_stack.push(tok);
-				break;
-		}
+        if (tok.prec) {
+            while (op_stack.length > 0 && op_stack.at(-1).prec >= tok.prec) {
+            	out_stack.push(op_stack.pop());		   	
+          	}
+          	op_stack.push(tok);
+        }  else if (RAW_VALUES.has(tok.type)) {
+            out_stack.push(tok);
+        }
 	}
 	op_stack.reverse();
 	out_stack = out_stack.concat(op_stack);

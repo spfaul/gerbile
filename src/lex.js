@@ -15,7 +15,10 @@ export const TOK_TYPE = {
 	RETURN: "RETURN",
 	EQ: "EQ",
 	IF: "IF",
-	ADD: "ADD"
+	ADD: "ADD",
+	SUB: "SUB",
+    MULT: "MUL",
+    DIV: "DIV"
 }
 
 export default function tokenize(text) {
@@ -96,6 +99,12 @@ function scanToken(text) {
             return {type: TOK_TYPE.PUSH, val: null};
         case "add":
             return {type: TOK_TYPE.ADD, val: null, prec: 1}  
+        case "sub":
+            return {type: TOK_TYPE.SUB, val: null, prec: 1} 
+        case "mult":
+            return {type: TOK_TYPE.MULT, val: null, prec: 2} 
+        case "div":
+            return {type: TOK_TYPE.DIV, val: null, prec: 2} 
 		default:
 			return {type: TOK_TYPE.IDENTIFIER, val: text};
 	}

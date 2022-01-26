@@ -1,7 +1,7 @@
 proc main in
-    int x = 6 add 3 add 3 
+    int x = 5 div 3
 
-    if x is 12 do
+    if x is 2 do
         ret 68
     end
 
