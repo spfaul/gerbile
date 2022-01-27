@@ -51,11 +51,6 @@ export default function parse(toks) {
     				            `addr_${gobacktothisaddr}:\n`;
     				}
     				break;
-    			case TOK_TYPE.PUSH:
-                    assert(line.length > 1, "Nothing to push!");
-                    assert(line[0].type === TOK_TYPE.INT, `Cannot push ${line[0].type}, only INT`); 
-                    // text += `    push ${line.shift().val}\n`;
-                    break;
     			case TOK_TYPE.FUNC_CALL:
     			    let func_iden = line.shift();
     			    text += `    add [mem_ptr], ${var_offset}\n`    +
@@ -99,9 +94,9 @@ export default function parse(toks) {
                     let operand_a = line.shift();
                     let operator = line.shift();
                     let operand_b = line.shift();
-    			    assert(operand_a.type == TOK_TYPE.IDENTIFIER || operand_a.type == TOK_TYPE.INT, "Invalid operand type!");
-    			    assert(operand_b.type == TOK_TYPE.IDENTIFIER || operand_b.type == TOK_TYPE.INT, "Invalid operand type!");
-                    assert(operator.type == TOK_TYPE.EQ, "Invalid Operator!");
+    			    assert(operand_a.type == TOK_TYPE.IDENTIFIER || RAW_VALUES.has(operand_a.type), "Invalid operand type!");
+    			    assert(operand_b.type == TOK_TYPE.IDENTIFIER || RAW_VALUES.has(operand_b.type), "Invalid operand type!");
+                    // assert(operator.type == TOK_TYPE.EQ, "Invalid Operator!");
                     
                     if (operand_a.type == TOK_TYPE.IDENTIFIER) {
                         text += `    mov rax, [mem_ptr]\n` +
@@ -118,9 +113,28 @@ export default function parse(toks) {
                         text += `    mov rcx, ${operand_b.val}\n`;
                     }
                     return_addrs.push(addr_count);
-                    text += `    cmp rdx, rcx\n` +
-                            `    je addr_${addr_count+1}\n` +
-                            `    jmp addr_${addr_count}\n`;
+                    text += `    cmp rdx, rcx\n`;
+                    switch (operator.type) {
+                        case TOK_TYPE.EQ:
+                            text += `    je addr_${addr_count+1}\n`;
+                            break;
+                        case TOK_TYPE.GT:
+                            text += `    jg addr_${addr_count+1}\n`;
+                            break;
+                        case TOK_TYPE.LT:
+                            text += `    jle addr_${addr_count+1}\n`;
+                            break;
+                        case TOK_TYPE.GTOEQ:
+                            text += `    jge addr_${addr_count+1}\n`
+                            break;
+                        case TOK_TYPE.LTOEQ:
+                            text += `    jle addr_${addr_count+1}\n`;  
+                            break;
+                        case TOK_TYPE.NEQ:
+                            text += `    jne addr_${addr_count+1}\n`;
+                            break;
+                    }
+                    text += `    jmp addr_${addr_count}\n`;
                     addr_count += 1;
                     break;
     		}
@@ -178,6 +192,11 @@ function eval_expr(expr_toks) {
             res_stack.push({type: "REF"});
         }
 	}
+	if (res_stack.length > 1) compiler_error(res_stack.at(-1).pos, "Unexpected token in expression");
+	if (res_stack.length == 1 && RAW_VALUES.has(res_stack[0].type)) {
+	    text += `    mov rsi, ${res_stack[0].val}\n`;
+	}
+	
 	return text;
 }
 

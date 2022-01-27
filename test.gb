@@ -1,7 +1,7 @@
 proc main in
-    int x = 5 div 3
+    int x = 2
 
-    if x is 2 do
+    if x gtoe 2 do
         ret 68
     end
 

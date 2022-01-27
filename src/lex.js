@@ -18,7 +18,13 @@ export const TOK_TYPE = {
 	ADD: "ADD",
 	SUB: "SUB",
     MULT: "MUL",
-    DIV: "DIV"
+    DIV: "DIV",
+    EQ: "EQ",
+    GT: "GT",
+    LT: "LT",
+    GTOEQ: "GTOEQ",
+    LTOEQ: "LTOEQ",
+    NEQ: "NEQ"
 }
 
 export default function tokenize(text) {
@@ -105,6 +111,16 @@ function scanToken(text) {
             return {type: TOK_TYPE.MULT, val: null, prec: 2} 
         case "div":
             return {type: TOK_TYPE.DIV, val: null, prec: 2} 
+        case "gt":
+            return {type: TOK_TYPE.GT, val: null}
+        case "lt":
+            return {type: TOK_TYPE.LT, val: null}
+        case "ltoe":
+            return {type: TOK_TYPE.LTOEQ, val: null}
+        case "gtoe":
+            return {type: TOK_TYPE.GTOEQ, val: null}
+        case "is-not":
+            return {type: TOK_TYPE.NEQ, val: null}
 		default:
 			return {type: TOK_TYPE.IDENTIFIER, val: text};
 	}
