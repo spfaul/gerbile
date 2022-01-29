@@ -16,7 +16,7 @@ export default function parse(toks) {
 	let identifiers = [];
 	let return_addrs = [];
     let curr_func_def = null;
-	let var_map = new Map();
+	let var_map;
 	let var_offset = 0;
 	let addr_count = 0;
 	while (toks.length > 0) {
@@ -30,6 +30,7 @@ export default function parse(toks) {
     				let func_name = line.shift();
     				text += `${func_name.val}:\n`;
                     curr_func_def = func_name.val;
+                    var_map = new Map();
     				break;
     			case TOK_TYPE.DEF_OPEN:
     				contexts.push({type: TOK_TYPE.DEF_OPEN, val: null});
@@ -45,17 +46,21 @@ export default function parse(toks) {
     			    assert(contexts.length > 0, "Unmatched parenthesis!");
     			    let open = contexts.pop()
     			    assert(open.type === TOK_TYPE.DEF_OPEN || open.type === TOK_TYPE.BRANCH_OPEN, `Unmatched parenthesis, got ${open.type}!`);
+                    if (contexts.length == 0 && curr_func_def) {
+                        // Top-level function definition end
+                        curr_func_def = null;
+                    }
     				if (return_addrs.length > 0) {
+    				    // Return to main branch
     			        let gobacktothisaddr = return_addrs.pop()
     				    text += `    jmp addr_${gobacktothisaddr}\n` +
     				            `addr_${gobacktothisaddr}:\n`;
     				}
     				break;
     			case TOK_TYPE.FUNC_CALL:
-    			    let func_iden = line.shift();
-    			    text += `    add [mem_ptr], ${var_offset}\n`    +
-    			            `    call ${func_iden.val}\n` +
-    			            `    sub [mem_ptr], ${var_offset}\n`;
+                    line.unshift(tok);
+                    text += eval_expr(line, var_offset);
+                    line.shift();
                     break;
         		case TOK_TYPE.INT_TYPE:
     			    if (line[0].type === TOK_TYPE.IDENTIFIER) {
@@ -69,26 +74,25 @@ export default function parse(toks) {
     			    break;
     			case TOK_TYPE.ASSIGN:
     			    let iden = identifiers.pop();
-    			    let eval_instructs = eval_expr(line); // Get rest of line as expression 
+    			    let eval_instructs = eval_expr(line, var_offset); // Get rest of line as expression 
     			    text += eval_instructs;
     			    line = [] // Trigger next iteration
     			    text += "    mov rax, [mem_ptr]\n" +
     			            `    add rax, ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}\n` +
+    			            "    pop rsi\n" +
     			            `    mov qword[mem + rax], rsi\n`;
     			    var_map.set(iden.val, {start: var_offset, size: 8});
     			    var_offset += 8;
     			    break;
     			case TOK_TYPE.RETURN:
-    			    assert(contexts.length > 0, "Stray Return!");
-    			    assert(curr_func_def !== null, "Cannot return outside of function");
+    			    if (curr_func_def === null) compiler_error("Cannot return outside of function");
     				if (curr_func_def === "main") {
     					text += "    mov rax, 60\n" +
-    							`    mov rdi, ${line[0].type == TOK_TYPE.INT ? line[0].val : 69420}\n` + 
+    							`    mov rdi, ${line[0].type == TOK_TYPE.INT ? line[0].val : 0}\n` + 
     							"    syscall\n";
     				} else {
                      text += "    ret\n";
     				}
-                    
     				break;
                 case TOK_TYPE.IF:
                     let operand_a = line.shift();
@@ -145,19 +149,19 @@ export default function parse(toks) {
 	return asm;
 }
 
-function eval_expr(expr_toks) {
+function eval_expr(expr_toks, var_offset, var_map) {
     let text = "";
 	let rpn_ordered_toks = shunting_yard(expr_toks);
-    console.log(rpn_ordered_toks);
-	
+	console.log(rpn_ordered_toks);
     let res_stack = [];
+	
 	for (let tok of rpn_ordered_toks) {
 		if (RAW_VALUES.has(tok.type)) {
             res_stack.push(tok);
         } else if (tok.prec) { // Operator
             if (res_stack.length < 2) compiler_error(tok.pos, `Expected 2 operands for operator ${tok.type}`);
             let arg_b = res_stack.pop();
-            let arg_a = res_stack.pop();      
+            let arg_a = res_stack.pop();
             if (RAW_VALUES.has(arg_a.type)) {
                 text += `    mov rsi, ${arg_a.val}\n`;
             } else if (arg_a.type === "REF") {
@@ -167,7 +171,6 @@ function eval_expr(expr_toks) {
                 text += `    mov rdi, ${arg_b.val}\n`;
             } else if (arg_b.type === "REF") {
                 text += "    pop rdi\n";
-                break;
             }
             switch (tok.type) {
                 case TOK_TYPE.ADD:
@@ -190,11 +193,33 @@ function eval_expr(expr_toks) {
             }
             text += "    push rsi\n";
             res_stack.push({type: "REF"});
+        } else if (tok.type === TOK_TYPE.FUNC_CALL) {
+            let func_call_var_offset = 0;
+		    text += `    add [mem_ptr], ${var_offset}\n`;
+		    console.log(res_stack);
+		    while (res_stack.length > 0) {
+		        let param_tok = res_stack.pop();
+                if (![TOK_TYPE.INT, TOK_TYPE.IDENTIFIER, "REF"].includes(param_tok.type)) {
+                    compiler_error("Unexpected parameter in function call")
+                }
+                text += "    mov rax, [mem_ptr]\n" +
+                        `    add rax, ${func_call_var_offset}\n`
+                if (param_tok.type === "REF") {
+                    text += "    pop rsi\n" +
+                            `    mov qword[mem + rax], rsi\n`;
+                } else {
+                    text += `    mov qword[mem + rax], ${param_tok.val}\n`;
+                }
+                func_call_var_offset += 4;
+		    }
+            text += `    call ${tok.val}\n` +
+                    `    sub [mem_ptr], ${var_offset}\n`;
         }
 	}
 	if (res_stack.length > 1) compiler_error(res_stack.at(-1).pos, "Unexpected token in expression");
 	if (res_stack.length == 1 && RAW_VALUES.has(res_stack[0].type)) {
-	    text += `    mov rsi, ${res_stack[0].val}\n`;
+	    text += `    mov rsi, ${res_stack[0].val}\n` +
+	            `    push rsi\n`;
 	}
 	
 	return text;
@@ -204,7 +229,8 @@ function shunting_yard(toks) {
 	let out_stack = [];
 	let op_stack = [];
 
-	for (let tok of toks) {
+	while (toks.length > 0) {
+	    let tok = toks.shift();
         if (tok.prec) {
             while (op_stack.length > 0 && op_stack.at(-1).prec >= tok.prec) {
             	out_stack.push(op_stack.pop());		   	
@@ -212,6 +238,22 @@ function shunting_yard(toks) {
           	op_stack.push(tok);
         }  else if (RAW_VALUES.has(tok.type)) {
             out_stack.push(tok);
+        } else if (tok.type === TOK_TYPE.FUNC_CALL) {
+            let iden = toks.shift();
+            if (!iden || iden.type !== TOK_TYPE.IDENTIFIER) compiler_error(tok.pos, "Expected identifier after keyword \"exec\"");
+            op_stack.push({type: TOK_TYPE.DEF_OPEN, val: null});
+            op_stack.push({type: TOK_TYPE.FUNC_CALL, val: iden.val}); // Dirty but works
+        } else if (tok.type === TOK_TYPE.DEF_OPEN) {
+            op_stack.push(tok);
+        } else if (tok.type === TOK_TYPE.DEF_CLOSE) {
+            while (op_stack.length > 0 && op_stack.at(-1).type !== TOK_TYPE.DEF_OPEN) {
+                // Prioritise pushing all ops within DEF_OPEN and DEF_CLOSE
+                out_stack.push(op_stack.pop());
+            }
+            if (op_stack.length == 0) compiler_error(tok.pos, "Mismatched Parenthesis while parsing expression");
+            op_stack.pop(); // Discard DEF_OPEN            
+        } else {
+            compiler_error(tok.pos, `Unexpected type ${tok.type} while parsing expression`);
         }
 	}
 	op_stack.reverse();

@@ -8,6 +8,7 @@ export function run_command(command, opts) {
     if (opts && opts.code === true) {
         console.log(`[INFO] Command finished with exit code ${proc.code}`);
     }
+    return proc.code
 }
 
 export function compiler_error(pos, msg) {

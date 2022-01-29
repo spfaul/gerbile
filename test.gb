@@ -1,9 +1,8 @@
 proc main in
-    int x = 2
-
-    if x gtoe 2 do
-        ret 68
-    end
-
+    int x = exec foo 2 3 end
     ret 69
+end
+
+proc foo in    
+    ret
 end

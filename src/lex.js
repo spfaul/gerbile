@@ -2,6 +2,7 @@ const WHITESPACE = ["\t", " ", "\n"];
 
 export const TOK_TYPE = {
 	FUNC: "FUNC",
+	FUNC_CALL: "FUNC_CALL",
 	DEF_OPEN: "DEF_OPEN",
 	BRANCH_OPEN: "BRANCH_OPEN",
 	DEF_CLOSE: "DEF_CLOSE",
