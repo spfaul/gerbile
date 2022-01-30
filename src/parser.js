@@ -31,6 +31,7 @@ export default function parse(toks) {
     				text += `${func_name.val}:\n`;
                     curr_func_def = func_name.val;
                     var_map = new Map();
+                    var_offset = 0;
     				break;
     			case TOK_TYPE.DEF_OPEN:
     				contexts.push({type: TOK_TYPE.DEF_OPEN, val: null});
@@ -43,19 +44,21 @@ export default function parse(toks) {
     				contexts.push({type: TOK_TYPE.BRANCH_OPEN, val: null});
     			    break;
     			case TOK_TYPE.DEF_CLOSE:
-    			    assert(contexts.length > 0, "Unmatched parenthesis!");
-    			    let open = contexts.pop()
-    			    assert(open.type === TOK_TYPE.DEF_OPEN || open.type === TOK_TYPE.BRANCH_OPEN, `Unmatched parenthesis, got ${open.type}!`);
-                    if (contexts.length == 0 && curr_func_def) {
-                        // Top-level function definition end
-                        curr_func_def = null;
-                    }
-    				if (return_addrs.length > 0) {
-    				    // Return to main branch
-    			        let gobacktothisaddr = return_addrs.pop()
-    				    text += `    jmp addr_${gobacktothisaddr}\n` +
-    				            `addr_${gobacktothisaddr}:\n`;
-    				}
+    			    {
+        			    assert(contexts.length > 0, "Unmatched parenthesis!");
+        			    let open = contexts.pop()
+        			    assert(open.type === TOK_TYPE.DEF_OPEN || open.type === TOK_TYPE.BRANCH_OPEN, `Unmatched parenthesis, got ${open.type}!`);
+                        if (contexts.length == 0 && curr_func_def) {
+                            // Top-level function definition end
+                            curr_func_def = null;
+                        }
+        				if (return_addrs.length > 0) {
+        				    // Return to main branch
+        			        let gobacktothisaddr = return_addrs.pop()
+        				    text += `    jmp addr_${gobacktothisaddr}\n` +
+        				            `addr_${gobacktothisaddr}:\n`;
+        				}
+        			}
     				break;
     			case TOK_TYPE.FUNC_CALL:
                     line.unshift(tok);
@@ -73,16 +76,27 @@ export default function parse(toks) {
     			    }
     			    break;
     			case TOK_TYPE.ASSIGN:
-    			    let iden = identifiers.pop();
-    			    let eval_instructs = eval_expr(line, var_offset); // Get rest of line as expression 
-    			    text += eval_instructs;
-    			    line = [] // Trigger next iteration
-    			    text += "    mov rax, [mem_ptr]\n" +
-    			            `    add rax, ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}\n` +
-    			            "    pop rsi\n" +
-    			            `    mov qword[mem + rax], rsi\n`;
-    			    var_map.set(iden.val, {start: var_offset, size: 8});
-    			    var_offset += 8;
+    			    {
+        			    let iden = identifiers.pop();
+        			    let eval_instructs = eval_expr(line, var_offset, var_map); // Get rest of line as expression 
+        			    text += eval_instructs;
+        			    line = [] // Trigger next iteration
+        			    text += "    mov rax, [mem_ptr]\n" +
+        			            `    add rax, ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}\n` +
+        			            "    pop rsi\n" +
+        			            `    mov qword[mem + rax], rsi\n`;
+                        if (!var_map.has(iden.val)) {
+            			    var_map.set(iden.val, {start: var_offset, size: 8});
+            			    var_offset += 8;
+                        }
+                    }
+    			    break;
+    			case TOK_TYPE.PARAM:
+    			    {  
+        			    let iden = identifiers.pop();
+                        var_map.set(iden.val, {start: var_offset, size: 8});
+                        var_offset += 8;
+                    }
     			    break;
     			case TOK_TYPE.RETURN:
     			    if (curr_func_def === null) compiler_error("Cannot return outside of function");
@@ -91,55 +105,59 @@ export default function parse(toks) {
     							`    mov rdi, ${line[0].type == TOK_TYPE.INT ? line[0].val : 0}\n` + 
     							"    syscall\n";
     				} else {
-                     text += "    ret\n";
+    				    text += eval_expr(line, var_offset, var_map) +
+    				            "    pop rsi\n" +
+                                "    ret\n";
     				}
     				break;
                 case TOK_TYPE.IF:
-                    let operand_a = line.shift();
-                    let operator = line.shift();
-                    let operand_b = line.shift();
-    			    assert(operand_a.type == TOK_TYPE.IDENTIFIER || RAW_VALUES.has(operand_a.type), "Invalid operand type!");
-    			    assert(operand_b.type == TOK_TYPE.IDENTIFIER || RAW_VALUES.has(operand_b.type), "Invalid operand type!");
-                    // assert(operator.type == TOK_TYPE.EQ, "Invalid Operator!");
-                    
-                    if (operand_a.type == TOK_TYPE.IDENTIFIER) {
-                        text += `    mov rax, [mem_ptr]\n` +
-                                `    add rax, ${var_map.get(operand_a.val).start}\n` +
-                                `    mov rdx, qword[mem + rax]\n`;
-                    } else {
-                        text += `    mov rdx, ${operand_a.val}\n`;
+                    {
+                        let operand_a = line.shift();
+                        let operator = line.shift();
+                        let operand_b = line.shift();
+        			    assert(operand_a.type == TOK_TYPE.IDENTIFIER || RAW_VALUES.has(operand_a.type), "Invalid operand type!");
+        			    assert(operand_b.type == TOK_TYPE.IDENTIFIER || RAW_VALUES.has(operand_b.type), "Invalid operand type!");
+                        // assert(operator.type == TOK_TYPE.EQ, "Invalid Operator!");
+                        
+                        if (operand_a.type == TOK_TYPE.IDENTIFIER) {
+                            text += `    mov rax, [mem_ptr]\n` +
+                                    `    add rax, ${var_map.get(operand_a.val).start}\n` +
+                                    `    mov rdx, qword[mem + rax]\n`;
+                        } else {
+                            text += `    mov rdx, ${operand_a.val}\n`;
+                        }
+                        if (operand_b.type == TOK_TYPE.IDENTIFIER) {
+                            text += "    mov rax, [mem_ptr]\n" +
+                                    `    add rax, ${var_map.get(operand_b.val).start}\n` +
+                                    `    mov rcx, qword[mem + rax]\n`;
+                        } else {
+                            text += `    mov rcx, ${operand_b.val}\n`;
+                        }
+                        return_addrs.push(addr_count);
+                        text += `    cmp rdx, rcx\n`;
+                        switch (operator.type) {
+                            case TOK_TYPE.EQ:
+                                text += `    je addr_${addr_count+1}\n`;
+                                break;
+                            case TOK_TYPE.GT:
+                                text += `    jg addr_${addr_count+1}\n`;
+                                break;
+                            case TOK_TYPE.LT:
+                                text += `    jle addr_${addr_count+1}\n`;
+                                break;
+                            case TOK_TYPE.GTOEQ:
+                                text += `    jge addr_${addr_count+1}\n`
+                                break;
+                            case TOK_TYPE.LTOEQ:
+                                text += `    jle addr_${addr_count+1}\n`;  
+                                break;
+                            case TOK_TYPE.NEQ:
+                                text += `    jne addr_${addr_count+1}\n`;
+                                break;
+                        }
+                        text += `    jmp addr_${addr_count}\n`;
+                        addr_count += 1;
                     }
-                    if (operand_b.type == TOK_TYPE.IDENTIFIER) {
-                        text += "    mov rax, [mem_ptr]\n" +
-                                `    add rax, ${var_map.get(operand_b.val).start}\n` +
-                                `    mov rcx, qword[mem + rax]\n`;
-                    } else {
-                        text += `    mov rcx, ${operand_b.val}\n`;
-                    }
-                    return_addrs.push(addr_count);
-                    text += `    cmp rdx, rcx\n`;
-                    switch (operator.type) {
-                        case TOK_TYPE.EQ:
-                            text += `    je addr_${addr_count+1}\n`;
-                            break;
-                        case TOK_TYPE.GT:
-                            text += `    jg addr_${addr_count+1}\n`;
-                            break;
-                        case TOK_TYPE.LT:
-                            text += `    jle addr_${addr_count+1}\n`;
-                            break;
-                        case TOK_TYPE.GTOEQ:
-                            text += `    jge addr_${addr_count+1}\n`
-                            break;
-                        case TOK_TYPE.LTOEQ:
-                            text += `    jle addr_${addr_count+1}\n`;  
-                            break;
-                        case TOK_TYPE.NEQ:
-                            text += `    jne addr_${addr_count+1}\n`;
-                            break;
-                    }
-                    text += `    jmp addr_${addr_count}\n`;
-                    addr_count += 1;
                     break;
     		}
 	    }
@@ -158,6 +176,15 @@ function eval_expr(expr_toks, var_offset, var_map) {
 	for (let tok of rpn_ordered_toks) {
 		if (RAW_VALUES.has(tok.type)) {
             res_stack.push(tok);
+        } else if (tok.type === TOK_TYPE.IDENTIFIER) {
+            if (!var_map.has(tok.val)) compiler_error(tok.pos, `Referencing undeclared identifier ${tok.val}`);
+            text += "    push rax\n" +
+                    "    mov rax, [mem_ptr]\n" +
+                    `    add rax, ${var_map.get(tok.val).start}\n` +
+                    "    mov rsi, qword[mem + rax]\n" +
+                    "    pop rax\n" +
+                    "    push rsi\n";
+            res_stack.push({type: "REF"});
         } else if (tok.prec) { // Operator
             if (res_stack.length < 2) compiler_error(tok.pos, `Expected 2 operands for operator ${tok.type}`);
             let arg_b = res_stack.pop();
@@ -210,10 +237,12 @@ function eval_expr(expr_toks, var_offset, var_map) {
                 } else {
                     text += `    mov qword[mem + rax], ${param_tok.val}\n`;
                 }
-                func_call_var_offset += 4;
+                func_call_var_offset += 8;
 		    }
+            res_stack.push({type: "REF"});
             text += `    call ${tok.val}\n` +
-                    `    sub [mem_ptr], ${var_offset}\n`;
+                    `    sub [mem_ptr], ${var_offset}\n` +
+                    "    push rsi\n";
         }
 	}
 	if (res_stack.length > 1) compiler_error(res_stack.at(-1).pos, "Unexpected token in expression");
@@ -236,7 +265,7 @@ function shunting_yard(toks) {
             	out_stack.push(op_stack.pop());		   	
           	}
           	op_stack.push(tok);
-        }  else if (RAW_VALUES.has(tok.type)) {
+        }  else if (RAW_VALUES.has(tok.type) || tok.type === TOK_TYPE.IDENTIFIER) {
             out_stack.push(tok);
         } else if (tok.type === TOK_TYPE.FUNC_CALL) {
             let iden = toks.shift();

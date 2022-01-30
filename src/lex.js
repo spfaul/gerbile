@@ -25,7 +25,8 @@ export const TOK_TYPE = {
     LT: "LT",
     GTOEQ: "GTOEQ",
     LTOEQ: "LTOEQ",
-    NEQ: "NEQ"
+    NEQ: "NEQ",
+    PARAM: "PARAM"
 }
 
 export default function tokenize(text) {
@@ -122,6 +123,8 @@ function scanToken(text) {
             return {type: TOK_TYPE.GTOEQ, val: null}
         case "is-not":
             return {type: TOK_TYPE.NEQ, val: null}
+        case "dec":
+            return {type: TOK_TYPE.PARAM, val: null}
 		default:
 			return {type: TOK_TYPE.IDENTIFIER, val: text};
 	}
