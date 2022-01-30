@@ -97,7 +97,7 @@ function scanToken(text) {
 			return {type: TOK_TYPE.ASSIGN, val: null};
 		case "ret":
 			return {type: TOK_TYPE.RETURN, val: null};
-        case "exec":
+        case "call":
 			return {type: TOK_TYPE.FUNC_CALL, val: null};
 		case "is":
 		    return {type: TOK_TYPE.EQ, val: null};
@@ -117,9 +117,9 @@ function scanToken(text) {
             return {type: TOK_TYPE.GT, val: null}
         case "lt":
             return {type: TOK_TYPE.LT, val: null}
-        case "ltoe":
+        case "iolt":
             return {type: TOK_TYPE.LTOEQ, val: null}
-        case "gtoe":
+        case "iogt":
             return {type: TOK_TYPE.GTOEQ, val: null}
         case "is-not":
             return {type: TOK_TYPE.NEQ, val: null}

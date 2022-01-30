@@ -1,15 +1,11 @@
 proc main in
-    int y = exec foo 2 3 end add 3
-
-    if y is 8 do
-        ret 68
-    end
-
-    ret 69
+    int y = call f 3 end   
+    
+    ret y
 end
 
-proc foo in
+proc f in
     int x dec
-    int y dec         
-    ret x add y
+    ret x
 end
+

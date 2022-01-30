@@ -101,8 +101,9 @@ export default function parse(toks) {
     			case TOK_TYPE.RETURN:
     			    if (curr_func_def === null) compiler_error("Cannot return outside of function");
     				if (curr_func_def === "main") {
-    					text += "    mov rax, 60\n" +
-    							`    mov rdi, ${line[0].type == TOK_TYPE.INT ? line[0].val : 0}\n` + 
+    					text += eval_expr(line, var_offset, var_map) + 
+					            "    mov rax, 60\n" +
+    							`    pop rdi\n` + 
     							"    syscall\n";
     				} else {
     				    text += eval_expr(line, var_offset, var_map) +
@@ -162,7 +163,6 @@ export default function parse(toks) {
     		}
 	    }
 	}
-
 	asm += text + data;
 	return asm;
 }
@@ -227,7 +227,7 @@ function eval_expr(expr_toks, var_offset, var_map) {
 		    while (res_stack.length > 0) {
 		        let param_tok = res_stack.pop();
                 if (![TOK_TYPE.INT, TOK_TYPE.IDENTIFIER, "REF"].includes(param_tok.type)) {
-                    compiler_error("Unexpected parameter in function call")
+                    compiler_error(`Unexpected parameter ${param_tok.type} in function call`)
                 }
                 text += "    mov rax, [mem_ptr]\n" +
                         `    add rax, ${func_call_var_offset}\n`
