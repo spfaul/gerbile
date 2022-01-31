@@ -2,7 +2,7 @@ import { TOK_TYPE } from "./lex.js";
 import { compiler_error } from "./utils.js";
 import assert from "assert";
 
-const RAW_VALUES = new Set([TOK_TYPE.INT]);
+const RAW_VALUES = new Set([TOK_TYPE.INT, TOK_TYPE.BOOL]);
 
 export default function parse(toks) {
 	let asm = "format ELF64 executable 3\n";
@@ -66,8 +66,19 @@ export default function parse(toks) {
                     line.shift();
                     break;
         		case TOK_TYPE.INT_TYPE:
-    			    if (line[0].type === TOK_TYPE.IDENTIFIER) {
-                        identifiers.push(line.shift());
+                    {
+                        let iden = line.shift();
+                        if (iden.type !== TOK_TYPE.IDENTIFIER) compiler_error(tok.pos, "Expected identifier after type declaration \"int\"");
+                        iden.val_type = TOK_TYPE.INT;
+                        identifiers.push(iden);
+                    }
+    			    break;
+    			case TOK_TYPE.BOOL_TYPE:
+    			    {
+    			        let iden = line.shift();
+                        if (iden.type !== TOK_TYPE.IDENTIFIER) compiler_error(tok.pos, "Expected identifier after type declaration \"bool\"");
+                        iden.val_type = TOK_TYPE.BOOL;
+                        identifiers.push(iden);
     			    }
     			    break;
     			case TOK_TYPE.IDENTIFIER:
@@ -78,13 +89,12 @@ export default function parse(toks) {
     			case TOK_TYPE.ASSIGN:
     			    {
         			    let iden = identifiers.pop();
-        			    let eval_instructs = eval_expr(line, var_offset, var_map); // Get rest of line as expression 
-        			    text += eval_instructs;
+        			    text += eval_expr(line, var_offset, var_map); // Get rest of line as expression 
         			    line = [] // Trigger next iteration
         			    text += "    mov rax, [mem_ptr]\n" +
         			            `    add rax, ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}\n` +
         			            "    pop rsi\n" +
-        			            `    mov qword[mem + rax], rsi\n`;
+			                    `    mov qword[mem + rax], rsi\n`;
                         if (!var_map.has(iden.val)) {
             			    var_map.set(iden.val, {start: var_offset, size: 8});
             			    var_offset += 8;
@@ -113,12 +123,20 @@ export default function parse(toks) {
     				break;
                 case TOK_TYPE.IF:
                     {
+                        text += eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
+                                          var_offset,
+                                          var_map);
+                        text += "    mov rcx, 1\n" +
+                                "    pop rsi\n" +
+                                "    cmp rcx, rsi\n" +
+                                `    je addr_${addr_count+1}\n` +
+                                `    jmp addr_${addr_count}\n`;
+                        return_addrs.push(addr_count);
+                        addr_count += 1;
+                        /*
                         let operand_a = line.shift();
                         let operator = line.shift();
                         let operand_b = line.shift();
-        			    assert(operand_a.type == TOK_TYPE.IDENTIFIER || RAW_VALUES.has(operand_a.type), "Invalid operand type!");
-        			    assert(operand_b.type == TOK_TYPE.IDENTIFIER || RAW_VALUES.has(operand_b.type), "Invalid operand type!");
-                        // assert(operator.type == TOK_TYPE.EQ, "Invalid Operator!");
                         
                         if (operand_a.type == TOK_TYPE.IDENTIFIER) {
                             text += `    mov rax, [mem_ptr]\n` +
@@ -137,27 +155,10 @@ export default function parse(toks) {
                         return_addrs.push(addr_count);
                         text += `    cmp rdx, rcx\n`;
                         switch (operator.type) {
-                            case TOK_TYPE.EQ:
-                                text += `    je addr_${addr_count+1}\n`;
-                                break;
-                            case TOK_TYPE.GT:
-                                text += `    jg addr_${addr_count+1}\n`;
-                                break;
-                            case TOK_TYPE.LT:
-                                text += `    jle addr_${addr_count+1}\n`;
-                                break;
-                            case TOK_TYPE.GTOEQ:
-                                text += `    jge addr_${addr_count+1}\n`
-                                break;
-                            case TOK_TYPE.LTOEQ:
-                                text += `    jle addr_${addr_count+1}\n`;  
-                                break;
-                            case TOK_TYPE.NEQ:
-                                text += `    jne addr_${addr_count+1}\n`;
-                                break;
                         }
                         text += `    jmp addr_${addr_count}\n`;
                         addr_count += 1;
+                        */
                     }
                     break;
     		}
@@ -217,6 +218,42 @@ function eval_expr(expr_toks, var_offset, var_map) {
                             "    mov rsi, rax\n" +
                             "    pop rdx\n    pop rax\n";
                     break;
+                case TOK_TYPE.EQ:
+                    text += "    cmp rsi, rdi\n" +
+                            "    mov rsi, 0\n" +
+                            "    mov rdi, 1\n" +
+                            `    cmove rsi, rdi\n`;
+                    break;
+                case TOK_TYPE.GT:
+                    text += "    cmp rsi, rdi\n" +
+                            "    mov rsi, 0\n" +
+                            "    mov rdi, 1\n" +
+                            `    cmovg rsi, rdi\n`;
+                    break;
+                case TOK_TYPE.LT:
+                    text += "    cmp rsi, rdi\n" +
+                            "    mov rsi, 0\n" +
+                            "    mov rdi, 1\n" +
+                            `    cmovl rsi, rdi\n`;
+		    break;
+                case TOK_TYPE.GTOEQ:
+                    text += "    cmp rsi, rdi\n" +
+                            "    mov rsi, 0\n" +
+                            "    mov rdi, 1\n" +
+                            `    cmovge rsi, rdi\n`;
+                    break;
+                case TOK_TYPE.LTOEQ:
+                    text += "    cmp rsi, rdi\n" +
+                            "    mov rsi, 0\n" +
+                            "    mov rdi, 1\n" +
+                            `    cmovle rsi, rdi\n`;
+                    break;
+                case TOK_TYPE.NEQ:
+                    text += "    cmp rsi, rdi\n" +
+                            "    mov rsi, 0\n" +
+                            "    mov rdi, 1\n" +
+                            `    cmovne rsi, rdi\n`;
+                    break;
             }
             text += "    push rsi\n";
             res_stack.push({type: "REF"});
@@ -230,7 +267,7 @@ function eval_expr(expr_toks, var_offset, var_map) {
                     compiler_error(`Unexpected parameter ${param_tok.type} in function call`)
                 }
                 text += "    mov rax, [mem_ptr]\n" +
-                        `    add rax, ${func_call_var_offset}\n`
+                        `    add rax, ${func_call_var_offset}\n`;
                 if (param_tok.type === "REF") {
                     text += "    pop rsi\n" +
                             `    mov qword[mem + rax], rsi\n`;

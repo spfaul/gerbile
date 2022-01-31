@@ -1,11 +1,9 @@
 proc main in
-    int y = call f 3 end   
-    
-    ret y
-end
+    int x = 2
 
-proc f in
-    int x dec
-    ret x
+    if x >= 2 do
+        ret 68
+    end
+        
+    ret 96
 end
-
