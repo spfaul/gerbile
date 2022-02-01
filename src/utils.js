@@ -1,4 +1,5 @@
 import shelljs from "shelljs";
+import process from "process";
 
 let error_count = 0;
 

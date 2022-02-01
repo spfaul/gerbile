@@ -28,14 +28,15 @@ export const TOK_TYPE = {
     GTOEQ: "GTOEQ",
     LTOEQ: "LTOEQ",
     NEQ: "NEQ",
-    PARAM: "PARAM"
+    PARAM: "PARAM",
+    PRINT_INT: "PRINT_INT"
 }
 
 export default function tokenize(text) {
 	let toks = [];
 	let curr_line_toks = [];
 	let val = "";
-	let curr_line = 0;
+	let curr_line = 1;
 	let curr_char = 0;
 
 	for (let idx=0; idx<text.length; idx++) {
@@ -73,8 +74,9 @@ export default function tokenize(text) {
 
 // From: https://stackoverflow.com/questions/14636536/how-to-check-if-a-variable-is-an-integer-in-javascript
 function isInt(str) {
-	let x = parseFloat(str);
-	return !isNaN(str) && (x | 0) === x;
+	// let x = parseFloat(str);
+	// return !isNaN(str) && (x | 0) === x;
+	return !isNaN(str) && !isNaN(parseFloat(str));
 }
 
 function isBool(str) {
@@ -118,7 +120,7 @@ function scanToken(text) {
             return {type: TOK_TYPE.ADD, val: null, prec: 2}  
         case "sub":
             return {type: TOK_TYPE.SUB, val: null, prec: 2} 
-        case "mult":
+        case "mul":
             return {type: TOK_TYPE.MULT, val: null, prec: 3} 
         case "div":
             return {type: TOK_TYPE.DIV, val: null, prec: 3} 
@@ -136,6 +138,8 @@ function scanToken(text) {
             return {type: TOK_TYPE.NEQ, val: null, prec: 1}
         case "dec":
             return {type: TOK_TYPE.PARAM, val: null}
+        case "print":
+            return {type: TOK_TYPE.PRINT_INT, val: null}
 		default:
 			return {type: TOK_TYPE.IDENTIFIER, val: text, val_type: null};
 	}

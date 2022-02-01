@@ -7,10 +7,43 @@ const RAW_VALUES = new Set([TOK_TYPE.INT, TOK_TYPE.BOOL]);
 export default function parse(toks) {
 	let asm = "format ELF64 executable 3\n";
 	let data = "segment readable writable\n" +
-	            "mem rb 100\n" + 
-	            "mem_ptr dq 0";
-	let text = "segment readable executable\n" +
-			    "entry main\n";
+	           "mem rb 100\n" + 
+	           "mem_ptr dq 0\n";
+	let text =  "segment readable executable\n" +
+		        "entry main\n" +
+                "print:\n"                               +
+                "    mov     r9, -3689348814741910323\n" +
+                "    sub     rsp, 40\n"                  +
+                "    mov     BYTE [rsp+31], 10\n"        +
+                "    lea     rcx, [rsp+30]\n"            +
+                ".L2:\n"                                 +
+                "    mov     rax, rdi\n"                 +
+                "    lea     r8, [rsp+32]\n"             +
+                "    mul     r9\n"                       +
+                "    mov     rax, rdi\n"                 +
+                "    sub     r8, rcx\n"                  +
+                "    shr     rdx, 3\n"                   +
+                "    lea     rsi, [rdx+rdx*4]\n"         +
+                "    add     rsi, rsi\n"                 +
+                "    sub     rax, rsi\n"                 +
+                "    add     eax, 48\n"                  +
+                "    mov     BYTE [rcx], al\n"           +
+                "    mov     rax, rdi\n"                 +
+                "    mov     rdi, rdx\n"                 +
+                "    mov     rdx, rcx\n"                 +
+                "    sub     rcx, 1\n"                   +
+                "    cmp     rax, 9\n"                   +
+                "    ja      .L2\n"                      +
+                "    lea     rax, [rsp+32]\n"            +
+                "    mov     edi, 1\n"                   +
+                "    sub     rdx, rax\n"                 +
+                "    xor     eax, eax\n"                 +
+                "    lea     rsi, [rsp+32+rdx]\n"        +
+                "    mov     rdx, r8\n"                  +
+                "    mov     rax, 1\n"                   +
+                "    syscall\n"                          +
+                "    add     rsp, 40\n"                  +
+                "    ret\n";
 
 	let contexts = [];
 	let identifiers = [];
@@ -45,9 +78,9 @@ export default function parse(toks) {
     			    break;
     			case TOK_TYPE.DEF_CLOSE:
     			    {
-        			    assert(contexts.length > 0, "Unmatched parenthesis!");
+        			    if (contexts.length == 0) compiler_error(tok.pos, "Unmatched parenthesis!");
         			    let open = contexts.pop()
-        			    assert(open.type === TOK_TYPE.DEF_OPEN || open.type === TOK_TYPE.BRANCH_OPEN, `Unmatched parenthesis, got ${open.type}!`);
+        			    if (open.type !== TOK_TYPE.DEF_OPEN && open.type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, `Unmatched parenthesis, got ${open.type}!`);
                         if (contexts.length == 0 && curr_func_def) {
                             // Top-level function definition end
                             curr_func_def = null;
@@ -84,11 +117,14 @@ export default function parse(toks) {
     			case TOK_TYPE.IDENTIFIER:
     			    if (var_map.has(tok.val)) {
     			        identifiers.push(tok);
+    			    } else {
+    			        compiler_error(tok.pos, `Unhandled identifier ${tok.val}`);
     			    }
     			    break;
     			case TOK_TYPE.ASSIGN:
     			    {
         			    let iden = identifiers.pop();
+        			    if (!iden.val_type) compiler_error(tok.pos, `Unexpected identifier ${iden.val} in assignment`);
         			    text += eval_expr(line, var_offset, var_map); // Get rest of line as expression 
         			    line = [] // Trigger next iteration
         			    text += "    mov rax, [mem_ptr]\n" +
@@ -96,9 +132,9 @@ export default function parse(toks) {
         			            "    pop rsi\n" +
 			                    `    mov qword[mem + rax], rsi\n`;
                         if (!var_map.has(iden.val)) {
-            			    var_map.set(iden.val, {start: var_offset, size: 8});
+            			    var_map.set(iden.val, {start: var_offset});
             			    var_offset += 8;
-                        }
+                        } 
                     }
     			    break;
     			case TOK_TYPE.PARAM:
@@ -126,40 +162,19 @@ export default function parse(toks) {
                         text += eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
                                           var_offset,
                                           var_map);
-                        text += "    mov rcx, 1\n" +
+                        text += "    mov rcx, 0\n" +
                                 "    pop rsi\n" +
                                 "    cmp rcx, rsi\n" +
-                                `    je addr_${addr_count+1}\n` +
+                                `    jne addr_${addr_count+1}\n` +
                                 `    jmp addr_${addr_count}\n`;
                         return_addrs.push(addr_count);
                         addr_count += 1;
-                        /*
-                        let operand_a = line.shift();
-                        let operator = line.shift();
-                        let operand_b = line.shift();
-                        
-                        if (operand_a.type == TOK_TYPE.IDENTIFIER) {
-                            text += `    mov rax, [mem_ptr]\n` +
-                                    `    add rax, ${var_map.get(operand_a.val).start}\n` +
-                                    `    mov rdx, qword[mem + rax]\n`;
-                        } else {
-                            text += `    mov rdx, ${operand_a.val}\n`;
-                        }
-                        if (operand_b.type == TOK_TYPE.IDENTIFIER) {
-                            text += "    mov rax, [mem_ptr]\n" +
-                                    `    add rax, ${var_map.get(operand_b.val).start}\n` +
-                                    `    mov rcx, qword[mem + rax]\n`;
-                        } else {
-                            text += `    mov rcx, ${operand_b.val}\n`;
-                        }
-                        return_addrs.push(addr_count);
-                        text += `    cmp rdx, rcx\n`;
-                        switch (operator.type) {
-                        }
-                        text += `    jmp addr_${addr_count}\n`;
-                        addr_count += 1;
-                        */
                     }
+                    break;
+                case TOK_TYPE.PRINT_INT:
+                    text += eval_expr(line, var_offset, var_map) +
+                            "    pop rdi\n" +
+                            "    call print\n";
                     break;
     		}
 	    }
@@ -182,7 +197,7 @@ function eval_expr(expr_toks, var_offset, var_map) {
             text += "    push rax\n" +
                     "    mov rax, [mem_ptr]\n" +
                     `    add rax, ${var_map.get(tok.val).start}\n` +
-                    "    mov rsi, qword[mem + rax]\n" +
+                    `    mov rsi, qword[mem + rax]\n` +
                     "    pop rax\n" +
                     "    push rsi\n";
             res_stack.push({type: "REF"});

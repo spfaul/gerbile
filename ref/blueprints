@@ -1,0 +1,10 @@
+steal "std.xxx"
+
+proc main to num do
+	vomitln "Hello, World!"
+end
+
+proc vomitln text ~ str, delim ~ str do
+	vomit text
+end
+

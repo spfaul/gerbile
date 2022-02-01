@@ -1,4 +1,5 @@
-ref/
-node_modules/
-test
-test.asm
+./ref/
+./node_modules/
+./package-lock.json
+./test
+./test.asm

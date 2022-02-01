@@ -1,9 +1,5 @@
-proc main in
-    int x = 2
-
-    if x >= 2 do
-        ret 68
-    end
-        
-    ret 96
+proc main in       
+    print yes
+    
+    ret 69
 end
