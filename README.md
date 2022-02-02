@@ -7,5 +7,6 @@ Hobbyist project, might not be maintained unless I feel like it.
 - Supported Types
   - [x] int (64-bit)
   - [x] bool
+  - [x] strings
   - [ ] float
   
