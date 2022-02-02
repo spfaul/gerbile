@@ -14,9 +14,5 @@ export function run_command(command, opts) {
 
 export function compiler_error(pos, msg) {
     console.log(`[ERROR] ${pos} - ${msg}`);
-    error_count += 1;
-}
-
-export function get_error_count() {
-    return error_count;
+    process.exit(1);
 }
