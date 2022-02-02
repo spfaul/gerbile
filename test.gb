@@ -1,5 +1,5 @@
 proc main in 
-    call scall1 1 1 "asd\n" 20 end
+    call print -2 end
 
     ret 69
 end

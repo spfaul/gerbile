@@ -12,65 +12,66 @@ export default function parse(toks) {
     // print subproc stolen from: https://gitlab.com/tsoding/porth/-/blob/master/porth.porth
     let text =  "segment readable executable\n" +
                 "entry main\n" +
-                "print:\n"                               +
-                "    mov     rax, [mem_ptr]\n"           +
-                "    mov     rdi, qword[mem + rax]\n"    +
-                "    mov     r9, -3689348814741910323\n" +
-                "    sub     rsp, 40\n"                  +
-                "    mov     BYTE [rsp+31], 10\n"        +
-                "    lea     rcx, [rsp+30]\n"            +
-                ".L2:\n"                                 +
-                "    mov     rax, rdi\n"                 +
-                "    lea     r8, [rsp+32]\n"             +
-                "    mul     r9\n"                       +
-                "    mov     rax, rdi\n"                 +
-                "    sub     r8, rcx\n"                  +
-                "    shr     rdx, 3\n"                   +
-                "    lea     rsi, [rdx+rdx*4]\n"         +
-                "    add     rsi, rsi\n"                 +
-                "    sub     rax, rsi\n"                 +
-                "    add     eax, 48\n"                  +
-                "    mov     BYTE [rcx], al\n"           +
-                "    mov     rax, rdi\n"                 +
-                "    mov     rdi, rdx\n"                 +
-                "    mov     rdx, rcx\n"                 +
-                "    sub     rcx, 1\n"                   +
-                "    cmp     rax, 9\n"                   +
-                "    ja      .L2\n"                      +
-                "    lea     rax, [rsp+32]\n"            +
-                "    mov     edi, 1\n"                   +
-                "    sub     rdx, rax\n"                 +
-                "    xor     eax, eax\n"                 +
-                "    lea     rsi, [rsp+32+rdx]\n"        +
-                "    mov     rdx, r8\n"                  +
-                "    mov     rax, 1\n"                   +
-                "    syscall\n"                          +
-                "    add     rsp, 40\n"                  +
-                "    ret\n"                              +
-                "scall1:\n"                              +
-                "   ; push params\n"                     +
-                "    mov rax, [mem_ptr]\n" +
-                "    mov rsi, qword[mem + rax]\n" +
-                "    push rsi\n" +
-                "    mov rax, [mem_ptr]\n" +
-                "    add rax, 8\n" +
-                "    mov rsi, qword[mem + rax]\n" +
-                "    push rsi\n" +
-                "    mov rax, [mem_ptr]\n" +
-                "    add rax, 16\n" +
-                "    mov rsi, qword[mem + rax]\n" +
-                "    push rsi\n" +
-                "    mov rax, [mem_ptr]\n" +
-                "    add rax, 24\n" +
-                "    mov rsi, qword[mem + rax]\n" +
-                "    push rsi\n" +
-                "    ; do syscall\n" +
-                "    pop rdx\n" +
-                "    pop rsi\n" +
-                "    pop rdi\n" +
-                "    pop rax\n" +
-                "    syscall\n" +
-                "    ret\n";                
+                "include \"std/std.asm\"\n";
+                // "print:\n"                               +
+                // "    mov     rax, [mem_ptr]\n"           +
+                // "    mov     rdi, qword[mem + rax]\n"    +
+                // "    mov     r9, -3689348814741910323\n" +
+                // "    sub     rsp, 40\n"                  +
+                // "    mov     BYTE [rsp+31], 10\n"        +
+                // "    lea     rcx, [rsp+30]\n"            +
+                // ".L2:\n"                                 +
+                // "    mov     rax, rdi\n"                 +
+                // "    lea     r8, [rsp+32]\n"             +
+                // "    mul     r9\n"                       +
+                // "    mov     rax, rdi\n"                 +
+                // "    sub     r8, rcx\n"                  +
+                // "    shr     rdx, 3\n"                   +
+                // "    lea     rsi, [rdx+rdx*4]\n"         +
+                // "    add     rsi, rsi\n"                 +
+                // "    sub     rax, rsi\n"                 +
+                // "    add     eax, 48\n"                  +
+                // "    mov     BYTE [rcx], al\n"           +
+                // "    mov     rax, rdi\n"                 +
+                // "    mov     rdi, rdx\n"                 +
+                // "    mov     rdx, rcx\n"                 +
+                // "    sub     rcx, 1\n"                   +
+                // "    cmp     rax, 9\n"                   +
+                // "    ja      .L2\n"                      +
+                // "    lea     rax, [rsp+32]\n"            +
+                // "    mov     edi, 1\n"                   +
+                // "    sub     rdx, rax\n"                 +
+                // "    xor     eax, eax\n"                 +
+                // "    lea     rsi, [rsp+32+rdx]\n"        +
+                // "    mov     rdx, r8\n"                  +
+                // "    mov     rax, 1\n"                   +
+                // "    syscall\n"                          +
+                // "    add     rsp, 40\n"                  +
+                // "    ret\n"                              +
+                // "scall4:\n"                              +
+                // "   ; push params\n"                     +
+                // "    mov rax, [mem_ptr]\n" +
+                // "    mov rsi, qword[mem + rax]\n" +
+                // "    push rsi\n" +
+                // "    mov rax, [mem_ptr]\n" +
+                // "    add rax, 8\n" +
+                // "    mov rsi, qword[mem + rax]\n" +
+                // "    push rsi\n" +
+                // "    mov rax, [mem_ptr]\n" +
+                // "    add rax, 16\n" +
+                // "    mov rsi, qword[mem + rax]\n" +
+                // "    push rsi\n" +
+                // "    mov rax, [mem_ptr]\n" +
+                // "    add rax, 24\n" +
+                // "    mov rsi, qword[mem + rax]\n" +
+                // "    push rsi\n" +
+                // "    ; do syscall\n" +
+                // "    pop rdx\n" +
+                // "    pop rsi\n" +
+                // "    pop rdi\n" +
+                // "    pop rax\n" +
+                // "    syscall\n" +
+                // "    ret\n";
 
     let contexts = [];
     let identifiers = [];
