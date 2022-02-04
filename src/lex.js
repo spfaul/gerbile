@@ -6,6 +6,7 @@ export const TOK_TYPE = {
     DEF_OPEN: "DEF_OPEN",
     BRANCH_OPEN: "BRANCH_OPEN",
     DEF_CLOSE: "DEF_CLOSE",
+    IF_CLOSE: "IF_CLOSE",
     PUSH: "PUSH",
     INT_TYPE: "INT_TYPE",
     BOOL_TYPE: "BOOL_TYPE",
@@ -20,6 +21,8 @@ export const TOK_TYPE = {
     RETURN: "RETURN",
     EQ: "EQ",
     IF: "IF",
+    ELSEIF: "ELSEIF",
+    ELSE: "ELSE",
     ADD: "ADD",
     SUB: "SUB",
     MULT: "MUL",
@@ -135,6 +138,12 @@ function scanToken(text) {
             return {type: TOK_TYPE.FUNC_CALL, val: null};
         case "if":
             return {type: TOK_TYPE.IF, val: null};
+        case "elif":
+            return {type: TOK_TYPE.ELSEIF, val: null};
+        case "else":
+            return {type: TOK_TYPE.ELSE, val: null};
+        case "endif":
+            return {type: TOK_TYPE.IF_CLOSE, val: null};            
         case "^":
             return {type: TOK_TYPE.PUSH, val: null};
         case "add":

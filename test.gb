@@ -1,5 +1,12 @@
 proc main in 
-    call print -2 end
+    int x = 1
 
-    ret 69
+    if x == 1 do
+        x = 69        
+    end elif x > 1 do
+        x = 68
+    endif
+    
+    
+    ret x
 end

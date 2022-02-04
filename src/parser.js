@@ -9,69 +9,10 @@ export default function parse(toks) {
     let data = "segment readable writable\n" +
                "mem rb 100\n" + 
                "mem_ptr dq 0\n";
-    // print subproc stolen from: https://gitlab.com/tsoding/porth/-/blob/master/porth.porth
+
     let text =  "segment readable executable\n" +
                 "entry main\n" +
                 "include \"std/std.asm\"\n";
-                // "print:\n"                               +
-                // "    mov     rax, [mem_ptr]\n"           +
-                // "    mov     rdi, qword[mem + rax]\n"    +
-                // "    mov     r9, -3689348814741910323\n" +
-                // "    sub     rsp, 40\n"                  +
-                // "    mov     BYTE [rsp+31], 10\n"        +
-                // "    lea     rcx, [rsp+30]\n"            +
-                // ".L2:\n"                                 +
-                // "    mov     rax, rdi\n"                 +
-                // "    lea     r8, [rsp+32]\n"             +
-                // "    mul     r9\n"                       +
-                // "    mov     rax, rdi\n"                 +
-                // "    sub     r8, rcx\n"                  +
-                // "    shr     rdx, 3\n"                   +
-                // "    lea     rsi, [rdx+rdx*4]\n"         +
-                // "    add     rsi, rsi\n"                 +
-                // "    sub     rax, rsi\n"                 +
-                // "    add     eax, 48\n"                  +
-                // "    mov     BYTE [rcx], al\n"           +
-                // "    mov     rax, rdi\n"                 +
-                // "    mov     rdi, rdx\n"                 +
-                // "    mov     rdx, rcx\n"                 +
-                // "    sub     rcx, 1\n"                   +
-                // "    cmp     rax, 9\n"                   +
-                // "    ja      .L2\n"                      +
-                // "    lea     rax, [rsp+32]\n"            +
-                // "    mov     edi, 1\n"                   +
-                // "    sub     rdx, rax\n"                 +
-                // "    xor     eax, eax\n"                 +
-                // "    lea     rsi, [rsp+32+rdx]\n"        +
-                // "    mov     rdx, r8\n"                  +
-                // "    mov     rax, 1\n"                   +
-                // "    syscall\n"                          +
-                // "    add     rsp, 40\n"                  +
-                // "    ret\n"                              +
-                // "scall4:\n"                              +
-                // "   ; push params\n"                     +
-                // "    mov rax, [mem_ptr]\n" +
-                // "    mov rsi, qword[mem + rax]\n" +
-                // "    push rsi\n" +
-                // "    mov rax, [mem_ptr]\n" +
-                // "    add rax, 8\n" +
-                // "    mov rsi, qword[mem + rax]\n" +
-                // "    push rsi\n" +
-                // "    mov rax, [mem_ptr]\n" +
-                // "    add rax, 16\n" +
-                // "    mov rsi, qword[mem + rax]\n" +
-                // "    push rsi\n" +
-                // "    mov rax, [mem_ptr]\n" +
-                // "    add rax, 24\n" +
-                // "    mov rsi, qword[mem + rax]\n" +
-                // "    push rsi\n" +
-                // "    ; do syscall\n" +
-                // "    pop rdx\n" +
-                // "    pop rsi\n" +
-                // "    pop rdi\n" +
-                // "    pop rax\n" +
-                // "    syscall\n" +
-                // "    ret\n";
 
     let contexts = [];
     let identifiers = [];
@@ -85,7 +26,6 @@ export default function parse(toks) {
         let line = toks.shift();
         while (line.length > 0) {
             let tok = line.shift();
-
             switch (tok.type) {
                 case TOK_TYPE.FUNC:
                     if (curr_func_def != null) compiler_error(tok.pos, "Cannot define subproc inside proc");
@@ -96,31 +36,42 @@ export default function parse(toks) {
                     var_offset = 0;
                     break;
                 case TOK_TYPE.DEF_OPEN:
-                    contexts.push({type: TOK_TYPE.DEF_OPEN, val: null});
+                    contexts.push(tok);
                     break;
                 case TOK_TYPE.BRANCH_OPEN:
                     if (curr_func_def !== null) {
                         text += `addr_${addr_count++}:\n`;
                     }
-                    contexts.push({type: TOK_TYPE.BRANCH_OPEN, val: null});
+                    contexts.push(tok);
                     break;
                 case TOK_TYPE.DEF_CLOSE:
                     {
                         if (contexts.length == 0) compiler_error(tok.pos, "Unmatched parenthesis!");
                         let open = contexts.pop()
-                        if (open.type !== TOK_TYPE.DEF_OPEN && open.type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, `Unmatched parenthesis, got ${open.type}!`);
+                        if (open.type !== TOK_TYPE.DEF_OPEN && open.type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, `Unmatched parenthesis, got ${open.type}`);
+                        // Top-level function definition end
                         if (contexts.length == 0 && curr_func_def) {
-                            // Top-level function definition end
                             curr_func_def = null;
                         }
-                        if (return_addrs.length > 0) {
-                            // Return to main branch
-                            let gobacktothisaddr = return_addrs.pop()
-                            text += `    jmp addr_${gobacktothisaddr}\n` +
-                                    `addr_${gobacktothisaddr}:\n`;
+                        // Return to main branch
+                        if (return_addrs.length > 0 && open.type === TOK_TYPE.BRANCH_OPEN) {
+                            text += `    jmp addr_${return_addrs.at(-1)}\n`;
+                            if (open.val === "IF") {
+                                text += `addr_${addr_count++}:\n`;
+                            }
                         }
                     }
                     break;
+                case TOK_TYPE.IF_CLOSE:
+                    {
+                        if (contexts.length == 0) compiler_error(tok.pos, "Unmatched parenthesis!");
+                        let open = contexts.pop();
+                        if (open.type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, `Unmatched parenthesis, got ${open.type}`);
+                        if (open.val === "IF") text += `addr_${addr_count++}:\n`;
+                        text += `    jmp addr_${return_addrs.at(-1)}\n` +
+                                `addr_${return_addrs.pop()}:\n`;
+                        break;
+                    }
                 case TOK_TYPE.FUNC_CALL:
                     {
                         line.unshift(tok);
@@ -187,21 +138,39 @@ export default function parse(toks) {
                     break;
                 case TOK_TYPE.IF:
                     {
+                        return_addrs.push(addr_count++);
                         let eval_data = eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
                                                   var_offset,
                                                   var_map);
+                        line[0].val = "IF";
                         text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
                         text += "    mov rcx, 0\n" +
                                 "    pop rsi\n" +
                                 "    cmp rcx, rsi\n" +
-                                `    jne addr_${addr_count+1}\n` +
-                                `    jmp addr_${addr_count}\n`;
-                        return_addrs.push(addr_count);
-                        addr_count += 1;
+                                `    jne addr_${addr_count}\n` +
+                                `    jmp addr_${addr_count+1}\n`;
                     }
-                    break;                    
+                    break;
+                case TOK_TYPE.ELSE:
+                    text += `    jmp addr_${addr_count}\n`;
+                    break;
+                case TOK_TYPE.ELSEIF:
+                    {
+                        let eval_data = eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
+                                                  var_offset,
+                                                  var_map);
+                        line[0].val = "IF";
+                        text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
+                        text += "    mov rcx, 0\n" +
+                                "    pop rsi\n" +
+                                "    cmp rcx, rsi\n" +
+                                `    jne addr_${addr_count}\n` +
+                                `    jmp addr_${addr_count+1}\n`;
+                    }
+                    break;
             }
         }
+        if (identifiers.length > 0) compiler_error(identifiers[0].pos, `Unhandled identifier \"${identifiers[0].val}\"`);
     }
     asm += text + data;
     return asm;
