@@ -1,12 +1,6 @@
-proc main in 
-    int x = 1
-
-    if x == 1 do
-        x = 69        
-    end elif x > 1 do
-        x = 68
-    endif
-    
-    
-    ret x
+proc main in
+    int x = 3
+    int y = 4
+     
+    ret y
 end

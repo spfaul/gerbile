@@ -94,6 +94,7 @@ export default function parse(toks) {
                     if (var_map.has(tok.val)) {
                         identifiers.push(Object.assign(tok, var_map.get(tok.val)));
                     } else {
+                        console.log(tok);
                         compiler_error(tok.pos, `Unhandled identifier ${tok.val}`);
                     }
                     break;
@@ -282,10 +283,13 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             res_stack.push({type: "REF"});
         } else if (tok.type === TOK_TYPE.FUNC_CALL) {
             let func_call_var_offset = 0;
+            let param_toks = [];
             text += `    add [mem_ptr], ${var_offset}\n`;
-            res_stack.reverse();
-            while (res_stack.length > 0) {
-                let param_tok = res_stack.pop();
+            while (res_stack.length && res_stack.at(-1).type !== TOK_TYPE.DEF_CLOSE) {
+                param_toks.unshift(res_stack.pop());
+            }
+            res_stack.pop(); // Discard DEF_CLOSE
+            for (let param_tok of param_toks) {
                 text += "    mov rax, [mem_ptr]\n" +
                         `    add rax, ${func_call_var_offset}\n`;
                 if (param_tok.type === "REF") {
@@ -300,9 +304,10 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             text += `    call ${tok.val}\n` +
                     `    sub [mem_ptr], ${var_offset}\n` +
                     "    push rsi\n";
+        } else if (tok.type === TOK_TYPE.DEF_CLOSE) {
+            res_stack.push(tok);
         }
     }
-    // console.log(res_stack);
     if (res_stack.length > 1) compiler_error(res_stack.at(-1).pos, `Unexpected token in expression`);
     if (res_stack.length == 1 && RAW_VALUES.has(res_stack[0].type)) {
         text += `    mov rsi, ${res_stack[0].val}\n` +
@@ -328,6 +333,7 @@ function shunting_yard(toks) {
         } else if (tok.type === TOK_TYPE.FUNC_CALL) {
             let iden = toks.shift();
             if (!iden || iden.type !== TOK_TYPE.IDENTIFIER) compiler_error(tok.pos, "Expected identifier after keyword \"call\"");
+            out_stack.push({type: TOK_TYPE.DEF_CLOSE, val: null}); // Signal the end of params
             op_stack.push({type: TOK_TYPE.DEF_OPEN, val: null});
             op_stack.push({type: TOK_TYPE.FUNC_CALL, val: iden.val}); // Dirty but works
         } else if (tok.type === TOK_TYPE.DEF_OPEN) {
@@ -338,7 +344,7 @@ function shunting_yard(toks) {
                 out_stack.push(op_stack.pop());
             }
             if (op_stack.length == 0) compiler_error(tok.pos, "Mismatched Parenthesis while parsing expression");
-            op_stack.pop(); // Discard DEF_OPEN            
+            op_stack.pop(); // Discard DEF_OPEN
         } else {
             compiler_error(tok.pos, `Unexpected type ${tok.type} while parsing expression`);
         }

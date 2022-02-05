@@ -1,0 +1,15 @@
+proc main in
+    call print call fib 10 end end
+    
+    ret 0
+end
+
+proc fib in
+    int n dec
+
+    if n < 2 do
+        ret n
+    end else do
+        ret call fib n sub 1 end add call fib n sub 2 end
+    endif
+end
