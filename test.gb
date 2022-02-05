@@ -1,6 +1,0 @@
-proc main in
-    int x = 3
-    int y = 4
-     
-    ret y
-end
