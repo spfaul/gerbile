@@ -70,22 +70,59 @@ print:
         nop
         leave
         ret
-
-scall4:
+        
+; ===== SYSCALLS ===== 
+scall0:
    ; push params
     mov rax, [mem_ptr]
     mov rsi, qword[mem + rax]
     push rsi
+    ; do syscall
+    pop rax
+    syscall
+    ret
+scall1:
+   ; push params
     mov rax, [mem_ptr]
+    mov rsi, qword[mem + rax]
+    push rsi
     add rax, 8
     mov rsi, qword[mem + rax]
     push rsi
+    ; do syscall
+    pop rdi
+    pop rax
+    syscall
+    ret
+scall2:
+   ; push params
     mov rax, [mem_ptr]
-    add rax, 16
     mov rsi, qword[mem + rax]
     push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    ; do syscall
+    pop rsi
+    pop rdi
+    pop rax
+    syscall
+    ret
+scall3:
+   ; push params
     mov rax, [mem_ptr]
-    add rax, 24
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
     mov rsi, qword[mem + rax]
     push rsi
     ; do syscall
@@ -95,3 +132,94 @@ scall4:
     pop rax
     syscall
     ret
+
+scall4:
+   ; push params
+    mov rax, [mem_ptr]
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    ; do syscall
+    pop r10
+    pop rdx
+    pop rsi
+    pop rdi
+    pop rax
+    syscall
+    ret
+    
+scall5:
+   ; push params
+    mov rax, [mem_ptr]
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi    
+    ; do syscall
+    pop r8
+    pop r10
+    pop rdx
+    pop rsi
+    pop rdi
+    pop rax
+    syscall
+    ret
+scall6:
+   ; push params
+    mov rax, [mem_ptr]
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    add rax, 8
+    mov rsi, qword[mem + rax]
+    push rsi
+    ; do syscall
+    pop r9
+    pop r8
+    pop r10
+    pop rdx
+    pop rsi
+    pop rdi
+    pop rax
+    syscall
+    ret
+
+

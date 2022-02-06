@@ -94,7 +94,7 @@ export default function parse(toks) {
                     if (var_map.has(tok.val)) {
                         identifiers.push(Object.assign(tok, var_map.get(tok.val)));
                     } else {
-                        console.log(tok);
+                        // console.log(tok);
                         compiler_error(tok.pos, `Unhandled identifier ${tok.val}`);
                     }
                     break;
@@ -105,9 +105,8 @@ export default function parse(toks) {
                         text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
                         line = [] // Trigger next iteration
                         text += "    mov rax, [mem_ptr]\n" +
-                                `    add rax, ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}\n` +
                                 "    pop rsi\n" +
-                                `    mov qword[mem + rax], rsi\n`;
+                                `    mov qword[mem + rax + ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}], rsi\n`;
                         if (!var_map.has(iden.val)) {
                             if (!iden.val_type) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
                             var_map.set(iden.val, {start: var_offset, val_type: iden.val_type});
@@ -118,7 +117,8 @@ export default function parse(toks) {
                 case TOK_TYPE.PARAM:
                     {  
                         let iden = identifiers.pop();
-                        var_map.set(iden.val, {start: var_offset, size: 8});
+                        if (!iden.val_type) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
+                        var_map.set(iden.val, {start: var_offset, val_type: iden.val_type});
                         var_offset += 8;
                     }
                     break;
@@ -195,18 +195,16 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
         if (RAW_VALUES.has(tok.type)) {
             res_stack.push(tok);
         } else if (tok.type === TOK_TYPE.STRING) {
-            // if (line.length > 1 || line[0].type !== TOK_TYPE.STRING) compiler_error(tok.pos, "String on RHS of assignment must be standalone");
             data += `str_${str_lit_count}: db ${atod(tok.val)}, 0\n`;
             text += `    push str_${str_lit_count}\n`;
-            str_lit_count += 1;
+            str_lit_count++;
             var_offset += 8;
             res_stack.push({type: "REF"});           
         } else if (tok.type === TOK_TYPE.IDENTIFIER) {
             if (!var_map.has(tok.val)) compiler_error(tok.pos, `Referencing undeclared identifier ${tok.val}`);
             text += "    push rax\n" +
                     "    mov rax, [mem_ptr]\n" +
-                    `    add rax, ${var_map.get(tok.val).start}\n` +
-                    `    mov rsi, qword[mem + rax]\n` +
+                    `    mov rsi, qword[mem + rax + ${var_map.get(tok.val).start}]\n` +
                     "    pop rax\n" +
                     "    push rsi\n";
             res_stack.push({type: "REF"});           
@@ -290,13 +288,12 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             }
             res_stack.pop(); // Discard DEF_CLOSE
             for (let param_tok of param_toks) {
-                text += "    mov rax, [mem_ptr]\n" +
-                        `    add rax, ${func_call_var_offset}\n`;
+                text += "    mov rax, [mem_ptr]\n";
                 if (param_tok.type === "REF") {
                     text += "    pop rsi\n" +
-                            `    mov qword[mem + rax], rsi\n`;
+                            `    mov qword[mem + rax + ${func_call_var_offset}], rsi\n`;
                 } else {
-                    text += `    mov qword[mem + rax], ${param_tok.val}\n`;
+                    text += `    mov qword[mem + rax + ${func_call_var_offset}], ${param_tok.val}\n`;
                 }
                 func_call_var_offset += 8;
             }

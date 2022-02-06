@@ -2,5 +2,5 @@ ref/
 node_modules/
 package-lock.json
 test
-test.asm
+test.gb.asm
 test.gb
