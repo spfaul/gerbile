@@ -34,7 +34,8 @@ export const TOK_TYPE = {
     LTOEQ: "LTOEQ",
     NEQ: "NEQ",
     PARAM: "PARAM",
-    PRINT_INT: "PRINT_INT"
+    PRINT_INT: "PRINT_INT",
+    COMMENT: "COMMENT"
 }
 
 export default function tokenize(text) {
@@ -168,6 +169,8 @@ function scanToken(text) {
             return {type: TOK_TYPE.NEQ, val: null, prec: 1}
         case "dec":
             return {type: TOK_TYPE.PARAM, val: null}
+        case "//":
+            return {type: TOK_TYPE.COMMENT, val: null}
         default:
             return {type: TOK_TYPE.IDENTIFIER, val: text, val_type: null};
     }

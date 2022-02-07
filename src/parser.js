@@ -94,7 +94,6 @@ export default function parse(toks) {
                     if (var_map.has(tok.val)) {
                         identifiers.push(Object.assign(tok, var_map.get(tok.val)));
                     } else {
-                        // console.log(tok);
                         compiler_error(tok.pos, `Unhandled identifier ${tok.val}`);
                     }
                     break;
@@ -103,7 +102,6 @@ export default function parse(toks) {
                         let iden = identifiers.pop();
                         let eval_data = eval_expr(line, var_offset, var_map, str_lit_count); // Get rest of line as expression 
                         text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
-                        line = [] // Trigger next iteration
                         text += "    mov rax, [mem_ptr]\n" +
                                 "    pop rsi\n" +
                                 `    mov qword[mem + rax + ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}], rsi\n`;
@@ -136,6 +134,9 @@ export default function parse(toks) {
                                     "    ret\n";
                         }
                     }
+                    break;
+                case TOK_TYPE.COMMENT:
+                    line = [];
                     break;
                 case TOK_TYPE.IF:
                     {
@@ -342,6 +343,9 @@ function shunting_yard(toks) {
             }
             if (op_stack.length == 0) compiler_error(tok.pos, "Mismatched Parenthesis while parsing expression");
             op_stack.pop(); // Discard DEF_OPEN
+        } else if (tok.type === TOK_TYPE.COMMENT) {
+            toks.length = 0;
+            break;  
         } else {
             compiler_error(tok.pos, `Unexpected type ${tok.type} while parsing expression`);
         }
