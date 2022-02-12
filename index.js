@@ -2,8 +2,13 @@ import tokenize from "./src/lex.js";
 import parse from "./src/parser.js";
 import { readFileSync, writeFileSync } from "fs";
 import { run_command } from "./src/utils.js";
-import process from "process";
 import { ArgumentParser } from "argparse";
+import { fileURLToPath } from 'url';
+import path from "path";
+import process from "process";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const parser = new ArgumentParser({
     description: "The Official Gerbile Compiler OwO"
@@ -21,9 +26,9 @@ let text = readFileSync(args.SRC_FILE, {encoding:"utf8", flag:"r"}, (err, data) 
 })
 
 let toks = tokenize(text);
-// console.log(toks);
 if (args.tokens) console.log(toks);
-let asm = parse(toks);
+
+let asm = parse(toks, args.SRC_FILE, __dirname);
 if (args.asm) console.log(asm);
 
 writeFileSync(`${args.SRC_FILE}.asm`, asm, (err) => {

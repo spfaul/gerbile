@@ -117,6 +117,8 @@ function scanToken(text) {
     switch (text) {
         case "proc":
             return {type: TOK_TYPE.FUNC, val: null};
+        case "intprint":
+            return {type: TOK_TYPE.PRINT_INT, val: null};
         case "in":
             return {type: TOK_TYPE.DEF_OPEN, val: null};    
         case "do":

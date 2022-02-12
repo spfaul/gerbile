@@ -1,19 +1,18 @@
 import { TOK_TYPE } from "./lex.js";
 import { compiler_error } from "./utils.js";
+import path from "path";
 import assert from "assert";
 
 const RAW_VALUES = new Set([TOK_TYPE.INT, TOK_TYPE.BOOL]);
 
-export default function parse(toks) {
+export default function parse(toks, src_file_path, proj_path) {
     let asm = "format ELF64 executable 3\n";
     let data = "segment readable writable\n" +
                "mem rb 100\n" + 
                "mem_ptr dq 0\n";
-
     let text =  "segment readable executable\n" +
                 "entry main\n" +
-                "include \"std/std.asm\"\n";
-
+                `include \"${path.relative(path.dirname(src_file_path), path.join(proj_path, "std/std.asm"))}\"\n`;
     let contexts = [];
     let identifiers = [];
     let return_addrs = [];
