@@ -221,5 +221,21 @@ scall6:
     pop rax
     syscall
     ret
-
-
+strlen:
+    ; extract params
+    push rdi
+    mov rax, [mem_ptr]
+    mov rdi, qword[mem + rax]
+    ; http://tuttlem.github.io/2013/01/08/strlen-implementation-in-nasm.html
+    push rbx
+    push rcx
+    mov rbx, rdi
+    xor al, al
+    mov rcx, -1
+    repne scasb
+    sub rdi, rbx
+    mov rsi, rdi
+    pop rcx
+    pop rbx
+    pop rdi
+    ret

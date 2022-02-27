@@ -34,7 +34,6 @@ export const TOK_TYPE = {
     LTOEQ: "LTOEQ",
     NEQ: "NEQ",
     PARAM: "PARAM",
-    PRINT_INT: "PRINT_INT",
     COMMENT: "COMMENT"
 }
 
@@ -87,8 +86,10 @@ export default function tokenize(text) {
         }
 
         if (c === "\n") {
-            toks.push(curr_line_toks);
-            curr_line_toks = [];
+            if (curr_line_toks.length) {
+                toks.push(curr_line_toks);
+                curr_line_toks = [];
+            }
             curr_line += 1;
             curr_char = 0;
         }
@@ -117,8 +118,6 @@ function scanToken(text) {
     switch (text) {
         case "proc":
             return {type: TOK_TYPE.FUNC, val: null};
-        case "intprint":
-            return {type: TOK_TYPE.PRINT_INT, val: null};
         case "in":
             return {type: TOK_TYPE.DEF_OPEN, val: null};    
         case "do":

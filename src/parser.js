@@ -190,6 +190,7 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
     let data = "";
     let rpn_ordered_toks = shunting_yard(expr_toks);
     let res_stack = [];
+    console.log(rpn_ordered_toks);
     
     for (let tok of rpn_ordered_toks) {
         if (RAW_VALUES.has(tok.type)) {
@@ -210,17 +211,18 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             res_stack.push({type: "REF"});           
         } else if (tok.prec) { // Operator
             if (res_stack.length < 2) compiler_error(tok.pos, `Expected 2 operands for operator \"${tok.type}\"`);
+            console.log(res_stack)
             let arg_b = res_stack.pop();
             let arg_a = res_stack.pop();
-            if (RAW_VALUES.has(arg_a.type)) {
-                text += `    mov rsi, ${arg_a.val}\n`;
-            } else if (arg_a.type === "REF") {
-                text += "    pop rsi\n";
-            }
             if (RAW_VALUES.has(arg_b.type)) {
                 text += `    mov rdi, ${arg_b.val}\n`;
             } else if (arg_b.type === "REF") {
                 text += "    pop rdi\n";
+            }
+            if (RAW_VALUES.has(arg_a.type)) {
+                text += `    mov rsi, ${arg_a.val}\n`;
+            } else if (arg_a.type === "REF") {
+                text += "    pop rsi\n";
             }
             switch (tok.type) {
                 case TOK_TYPE.ADD:
@@ -317,16 +319,25 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
 function shunting_yard(toks) {
     let out_stack = [];
     let op_stack = [];
+    let tmp_stack = [];
 
     while (toks.length > 0) {
         let tok = toks.shift();
+
+        if (RAW_VALUES.has(tok.type) || tok.type === TOK_TYPE.IDENTIFIER || tok.type === TOK_TYPE.STRING) {
+            tmp_stack.push(tok);
+            continue;
+        }
+        
+        tmp_stack.reverse();
+        out_stack = out_stack.concat(tmp_stack);
+        tmp_stack = [];
+        
         if (tok.prec) {
             while (op_stack.length > 0 && op_stack.at(-1).prec >= tok.prec) {
                 out_stack.push(op_stack.pop());               
-              }
-              op_stack.push(tok);
-        }  else if (RAW_VALUES.has(tok.type) || tok.type === TOK_TYPE.IDENTIFIER || tok.type === TOK_TYPE.STRING) {
-            out_stack.push(tok);
+            }
+            op_stack.push(tok);
         } else if (tok.type === TOK_TYPE.FUNC_CALL) {
             let iden = toks.shift();
             if (!iden || iden.type !== TOK_TYPE.IDENTIFIER) compiler_error(tok.pos, "Expected identifier after keyword \"call\"");
@@ -349,6 +360,12 @@ function shunting_yard(toks) {
             compiler_error(tok.pos, `Unexpected type ${tok.type} while parsing expression`);
         }
     }
+    if (tmp_stack.length > 0) {
+        tmp_stack.reverse();
+        out_stack = out_stack.concat(tmp_stack);
+        tmp_stack = [];
+    }
+    
     op_stack.reverse();
     out_stack = out_stack.concat(op_stack);
     return out_stack;
