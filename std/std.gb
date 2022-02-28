@@ -2,7 +2,10 @@ proc print in
     str text dec
     int len = call strlen text end
     call scall3 1 1 text len end
-    ret
 end
 
-
+proc println in
+    str text dec
+    call print text end
+    call print "\n" end
+end

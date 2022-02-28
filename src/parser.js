@@ -5,6 +5,7 @@ import assert from "assert";
 import { readFileSync } from "fs";
 
 const RAW_VALUES = new Set([TOK_TYPE.INT, TOK_TYPE.BOOL]);
+const TOP_LEVEL = new Set([TOK_TYPE.INCLUDE, TOK_TYPE.FUNC, TOK_TYPE.DEF_OPEN]);
 
 export default function parse(toks, src_file_path, proj_path) {
     let asm = "format ELF64 executable 3\n";
@@ -26,6 +27,9 @@ export default function parse(toks, src_file_path, proj_path) {
         let line = toks.shift();
         while (line.length > 0) {
             let tok = line.shift();
+
+            if (curr_func_def == null && !TOP_LEVEL.has(tok.type)) compiler_error(tok.pos, "Keyword not allowed at top level!");
+
             switch (tok.type) {
                 case TOK_TYPE.INCLUDE:
                     {
@@ -63,9 +67,10 @@ export default function parse(toks, src_file_path, proj_path) {
                         if (open.type !== TOK_TYPE.DEF_OPEN && open.type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, `Unmatched parenthesis, got ${open.type}`);
                         // Top-level function definition end
                         if (contexts.length == 0 && curr_func_def) {
+                            text += "    ret\n";
                             curr_func_def = null;
                         }
-                        // Return to main branch
+                        // Return to main branch from conditionals
                         if (return_addrs.length > 0 && open.type === TOK_TYPE.BRANCH_OPEN) {
                             text += `    jmp addr_${return_addrs.at(-1)}\n`;
                             if (open.val === "IF") {
@@ -143,7 +148,8 @@ export default function parse(toks, src_file_path, proj_path) {
                                     `    pop rdi\n` + 
                                     "    syscall\n";
                         } else {
-                            text += "    ret\n";
+                            text += "    pop rsi\n" + 
+                                    "    ret\n";
                         }
                     }
                     break;
@@ -338,12 +344,6 @@ function shunting_yard(toks) {
 
         if (RAW_VALUES.has(tok.type) || tok.type === TOK_TYPE.STRING || tok.type === TOK_TYPE.IDENTIFIER) {
             out_stack.push(tok);
-        // } else if (tok.type === TOK_TYPE.IDENTIFIER) {
-            // tmp_stack = []
-            // while (out_stack.length > 0 && out_stack.at(-1).type === TOK_TYPE.IDENTIFIER) {
-                // tmp_stack.unshift(out_stack.pop());
-            // }
-            // out_stack.push(tok, ...tmp_stack);
         } else if (tok.prec) {
             while (op_stack.length > 0 && op_stack.at(-1).prec >= tok.prec) {
                 out_stack.push(op_stack.pop());               
