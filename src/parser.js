@@ -1,7 +1,8 @@
-import { TOK_TYPE } from "./lex.js";
+import tokenize, { TOK_TYPE } from "./lex.js";
 import { compiler_error } from "./utils.js";
 import path from "path";
 import assert from "assert";
+import { readFileSync } from "fs";
 
 const RAW_VALUES = new Set([TOK_TYPE.INT, TOK_TYPE.BOOL]);
 
@@ -26,9 +27,21 @@ export default function parse(toks, src_file_path, proj_path) {
         while (line.length > 0) {
             let tok = line.shift();
             switch (tok.type) {
+                case TOK_TYPE.INCLUDE:
+                    {
+                        let file_path = line.shift();
+                        if (file_path === undefined || file_path.type !== TOK_TYPE.STRING) compiler_error(tok.pos, "Invalid or missing include file path");
+                        let inc_text = readFileSync(file_path.val, {encoding:"utf8", flag: "r"}, (err, data) => {
+                            if (err) compiler_error(file_path.pos, `Error while reading file at ${file_path.val}`);
+                        });
+                        let inc_toks = tokenize(inc_text);
+                        toks.unshift(...inc_toks);
+                    }
+                    break;
                 case TOK_TYPE.FUNC:
                     if (curr_func_def != null) compiler_error(tok.pos, "Cannot define subproc inside proc");
                     let func_name = line.shift();
+                    if (func_name === undefined || func_name.type !== TOK_TYPE.IDENTIFIER) compiler_error("Invalid or missing function name");
                     text += `${func_name.val}:\n`;
                     curr_func_def = func_name.val;
                     var_map = new Map();
@@ -76,6 +89,7 @@ export default function parse(toks, src_file_path, proj_path) {
                         line.unshift(tok);
                         let eval_data = eval_expr(line, var_offset, var_map, str_lit_count);
                         text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
+                        text += "    pop rsi\n";
                         line.shift();
                         break;
                     }
@@ -93,7 +107,7 @@ export default function parse(toks, src_file_path, proj_path) {
                     if (var_map.has(tok.val)) {
                         identifiers.push(Object.assign(tok, var_map.get(tok.val)));
                     } else {
-                        compiler_error(tok.pos, `Unhandled identifier ${tok.val}`);
+                        compiler_error(tok.pos, `Undeclared identifier ${tok.val}`);
                     }
                     break;
                 case TOK_TYPE.ASSIGN:
@@ -129,8 +143,7 @@ export default function parse(toks, src_file_path, proj_path) {
                                     `    pop rdi\n` + 
                                     "    syscall\n";
                         } else {
-                            text += "    pop rsi\n" +
-                                    "    ret\n";
+                            text += "    ret\n";
                         }
                     }
                     break;
@@ -190,7 +203,6 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
     let data = "";
     let rpn_ordered_toks = shunting_yard(expr_toks);
     let res_stack = [];
-    console.log(rpn_ordered_toks);
     
     for (let tok of rpn_ordered_toks) {
         if (RAW_VALUES.has(tok.type)) {
@@ -208,10 +220,9 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
                     `    mov rsi, qword[mem + rax + ${var_map.get(tok.val).start}]\n` +
                     "    pop rax\n" +
                     "    push rsi\n";
-            res_stack.push({type: "REF"});           
+            res_stack.push({type: "REF", name: tok.val});           
         } else if (tok.prec) { // Operator
             if (res_stack.length < 2) compiler_error(tok.pos, `Expected 2 operands for operator \"${tok.type}\"`);
-            console.log(res_stack)
             let arg_b = res_stack.pop();
             let arg_a = res_stack.pop();
             if (RAW_VALUES.has(arg_b.type)) {
@@ -282,13 +293,14 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             text += "    push rsi\n";
             res_stack.push({type: "REF"});
         } else if (tok.type === TOK_TYPE.FUNC_CALL) {
-            let func_call_var_offset = 0;
             let param_toks = [];
             text += `    add [mem_ptr], ${var_offset}\n`;
             while (res_stack.length && res_stack.at(-1).type !== TOK_TYPE.DEF_CLOSE) {
-                param_toks.unshift(res_stack.pop());
+                param_toks.push(res_stack.pop()); // b a
             }
             res_stack.pop(); // Discard DEF_CLOSE
+            // Push args onto stack from nth to 1st arg
+            let func_call_var_offset = 8 * (param_toks.length - 1);
             for (let param_tok of param_toks) {
                 text += "    mov rax, [mem_ptr]\n";
                 if (param_tok.type === "REF") {
@@ -297,12 +309,12 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
                 } else {
                     text += `    mov qword[mem + rax + ${func_call_var_offset}], ${param_tok.val}\n`;
                 }
-                func_call_var_offset += 8;
+                func_call_var_offset -= 8;
             }
-            res_stack.push({type: "REF"});
             text += `    call ${tok.val}\n` +
                     `    sub [mem_ptr], ${var_offset}\n` +
                     "    push rsi\n";
+            res_stack.push({type: "REF"});
         } else if (tok.type === TOK_TYPE.DEF_CLOSE) {
             res_stack.push(tok);
         }
@@ -319,21 +331,20 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
 function shunting_yard(toks) {
     let out_stack = [];
     let op_stack = [];
-    let tmp_stack = [];
+    let tmp_stack;
 
     while (toks.length > 0) {
         let tok = toks.shift();
 
-        if (RAW_VALUES.has(tok.type) || tok.type === TOK_TYPE.IDENTIFIER || tok.type === TOK_TYPE.STRING) {
-            tmp_stack.push(tok);
-            continue;
-        }
-        
-        tmp_stack.reverse();
-        out_stack = out_stack.concat(tmp_stack);
-        tmp_stack = [];
-        
-        if (tok.prec) {
+        if (RAW_VALUES.has(tok.type) || tok.type === TOK_TYPE.STRING || tok.type === TOK_TYPE.IDENTIFIER) {
+            out_stack.push(tok);
+        // } else if (tok.type === TOK_TYPE.IDENTIFIER) {
+            // tmp_stack = []
+            // while (out_stack.length > 0 && out_stack.at(-1).type === TOK_TYPE.IDENTIFIER) {
+                // tmp_stack.unshift(out_stack.pop());
+            // }
+            // out_stack.push(tok, ...tmp_stack);
+        } else if (tok.prec) {
             while (op_stack.length > 0 && op_stack.at(-1).prec >= tok.prec) {
                 out_stack.push(op_stack.pop());               
             }
@@ -360,12 +371,7 @@ function shunting_yard(toks) {
             compiler_error(tok.pos, `Unexpected type ${tok.type} while parsing expression`);
         }
     }
-    if (tmp_stack.length > 0) {
-        tmp_stack.reverse();
-        out_stack = out_stack.concat(tmp_stack);
-        tmp_stack = [];
-    }
-    
+        
     op_stack.reverse();
     out_stack = out_stack.concat(op_stack);
     return out_stack;

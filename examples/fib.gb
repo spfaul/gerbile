@@ -1,12 +1,11 @@
 proc main in
-    call print call fib 10 end end
-    
+    call print_int call fib 10 end end    
     ret 0
 end
 
 proc fib in
     int n dec
-
+    
     if n < 2 do
         ret n
     end else do

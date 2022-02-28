@@ -1,0 +1,8 @@
+proc print in
+    str text dec
+    int len = call strlen text end
+    call scall3 1 1 text len end
+    ret
+end
+
+

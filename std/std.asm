@@ -1,4 +1,4 @@
-print:
+print_int:
         mov rax, [mem_ptr]
         mov rdi, qword[mem + rax]    
         push    rbp

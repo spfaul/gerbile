@@ -1,6 +1,7 @@
 const WHITESPACE = ["\t", " ", "\n"];
 
 export const TOK_TYPE = {
+    INCLUDE: "INCLUDE",
     FUNC: "FUNC",
     FUNC_CALL: "FUNC_CALL",
     DEF_OPEN: "DEF_OPEN",
@@ -116,6 +117,8 @@ function scanToken(text) {
     if (isBool(text)) return {type: TOK_TYPE.BOOL, val: text === "yes" ? 1 : 0};
 
     switch (text) {
+        case "include":
+            return {type: TOK_TYPE.INCLUDE, val: null};
         case "proc":
             return {type: TOK_TYPE.FUNC, val: null};
         case "in":
