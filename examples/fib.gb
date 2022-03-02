@@ -1,5 +1,11 @@
+include "std/std.gb"
+
 proc main in
-    call print_int call fib 10 end end    
+    int i = 1
+    loop i < 20 do
+        call print_int call fib i end end
+        i = i add 1
+    end
     ret 0
 end
 

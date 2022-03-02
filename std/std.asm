@@ -80,6 +80,7 @@ scall0:
     ; do syscall
     pop rax
     syscall
+    mov rsi, rax
     ret
 scall1:
    ; push params
@@ -93,6 +94,7 @@ scall1:
     pop rdi
     pop rax
     syscall
+    mov rsi, rax
     ret
 scall2:
    ; push params
@@ -110,6 +112,7 @@ scall2:
     pop rdi
     pop rax
     syscall
+    mov rsi, rax
     ret
 scall3:
    ; push params
@@ -131,6 +134,7 @@ scall3:
     pop rdi
     pop rax
     syscall
+    mov rsi, rax
     ret
 
 scall4:
@@ -157,6 +161,7 @@ scall4:
     pop rdi
     pop rax
     syscall
+    mov rsi, rax
     ret
     
 scall5:
@@ -187,6 +192,7 @@ scall5:
     pop rdi
     pop rax
     syscall
+    mov rsi, rax
     ret
 scall6:
    ; push params
@@ -220,6 +226,7 @@ scall6:
     pop rdi
     pop rax
     syscall
+    mov rsi, rax
     ret
 strlen:
     ; extract params

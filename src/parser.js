@@ -10,7 +10,7 @@ const TOP_LEVEL = new Set([TOK_TYPE.INCLUDE, TOK_TYPE.FUNC, TOK_TYPE.DEF_OPEN]);
 export default function parse(toks, src_file_path, proj_path) {
     let asm = "format ELF64 executable 3\n";
     let data = "segment readable writable\n" +
-               "mem rb 100\n" + 
+               "mem rb 600000\n" + 
                "mem_ptr dq 0\n";
     let text =  "segment readable executable\n" +
                 "entry main\n" +
@@ -75,6 +75,9 @@ export default function parse(toks, src_file_path, proj_path) {
                             text += `    jmp addr_${return_addrs.at(-1)}\n`;
                             if (open.val === "IF") {
                                 text += `addr_${addr_count++}:\n`;
+                            } else if (open.val === "WHILE") {
+                                text += `    jmp addr_${return_addrs.pop()}\n` +
+                                        `addr_${return_addrs.pop()}:\n`;
                             }
                         }
                     }
@@ -161,8 +164,10 @@ export default function parse(toks, src_file_path, proj_path) {
                         return_addrs.push(addr_count++);
                         let eval_data = eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
                                                   var_offset,
-                                                  var_map);
+                                                  var_map,
+                                                  str_lit_count);
                         line[0].val = "IF";
+                        if (line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for IF statement, found nothing");
                         text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
                         text += "    mov rcx, 0\n" +
                                 "    pop rsi\n" +
@@ -172,13 +177,16 @@ export default function parse(toks, src_file_path, proj_path) {
                     }
                     break;
                 case TOK_TYPE.ELSE:
+                    if (line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for ELSE statement, found nothing");
                     text += `    jmp addr_${addr_count}\n`;
                     break;
                 case TOK_TYPE.ELSEIF:
                     {
                         let eval_data = eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
                                                   var_offset,
-                                                  var_map);
+                                                  var_map,
+                                                  str_lit_count);
+                        if (line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for ELSE IF statement, found nothing");
                         line[0].val = "IF";
                         text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
                         text += "    mov rcx, 0\n" +
@@ -186,6 +194,25 @@ export default function parse(toks, src_file_path, proj_path) {
                                 "    cmp rcx, rsi\n" +
                                 `    jne addr_${addr_count}\n` +
                                 `    jmp addr_${addr_count+1}\n`;
+                    }
+                    break;
+                case TOK_TYPE.WHILE:
+                    {
+                        return_addrs.push(addr_count+1); // return to this branch at end of loop
+                        return_addrs.push(addr_count); // loop branch
+                        let eval_data = eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
+                                                  var_offset,
+                                                  var_map,
+                                                  str_lit_count);
+                        if (line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for LOOP statement, found nothing");                        
+                        line[0].val = "WHILE";
+                        text += `addr_${addr_count}:\n`
+                        text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
+                        text += "    mov rcx, 0\n" +
+                                "    pop rsi\n" +
+                                "    cmp rcx, rsi\n" +
+                                `    je addr_${addr_count+1}\n`;
+                        addr_count += 2;
                     }
                     break;
             }

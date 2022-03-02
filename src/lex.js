@@ -35,6 +35,7 @@ export const TOK_TYPE = {
     LTOEQ: "LTOEQ",
     NEQ: "NEQ",
     PARAM: "PARAM",
+    WHILE: "WHILE",
     COMMENT: "COMMENT"
 }
 
@@ -175,6 +176,8 @@ function scanToken(text) {
             return {type: TOK_TYPE.PARAM, val: null}
         case "//":
             return {type: TOK_TYPE.COMMENT, val: null}
+        case "loop":
+            return {type: TOK_TYPE.WHILE, val: null}
         default:
             return {type: TOK_TYPE.IDENTIFIER, val: text, val_type: null};
     }
