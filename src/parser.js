@@ -1,11 +1,43 @@
-import tokenize, { TOK_TYPE } from "./lex.js";
+import tokenize, { TOK_TYPE, TYPE_TO_SIZE } from "./lex.js";
 import { compiler_error } from "./utils.js";
 import path from "path";
 import assert from "assert";
 import { readFileSync } from "fs";
 
 const RAW_VALUES = new Set([TOK_TYPE.INT, TOK_TYPE.BOOL]);
-const TOP_LEVEL = new Set([TOK_TYPE.INCLUDE, TOK_TYPE.FUNC, TOK_TYPE.DEF_OPEN]);
+const TOP_LEVEL = new Set([TOK_TYPE.INCLUDE, TOK_TYPE.FUNC, TOK_TYPE.DEF_OPEN, TOK_TYPE.COMMENT]);
+const SIZE_TO_DIRECTIVE = new Map([
+    [1, "byte"],
+    [8, "qword"]
+]);
+const REGS = new Map([
+    ["rax", ["eax", "ax", "al"]],
+    ["rcx", ["ecx", "cx", "cl"]],
+    ["rdx", ["edx", "dx", "dl"]],
+    ["rbx", ["ebx", "bx", "bl"]],
+    ["rsi", ["esi", "si", "sil"]],
+    ["rdi", ["edi", "di", "dil"]],
+    ["rsp", ["esp", "sp", "spl"]],
+    ["rbp", ["ebp", "bp", "bpl"]],
+    ["r8" , ["r8d", "r8w", "r8b"]],
+    ["r9" , ["r9d", "r9w", "r9b"]],
+    ["r10", ["r10d", "r10w", "r10b"]],
+    ["r11", ["r11d", "r11w", "r11b"]],
+    ["r12", ["r12d", "r12w", "r12b"]],
+    ["r13", ["r13d", "r13w", "r13b"]],
+    ["r14", ["r14d", "r14w", "r14b"]],
+    ["r15", ["r15d", "r15w", "r15b"]]    
+]);
+
+function get_subreg(reg, size) {
+    if (!REGS.has(reg)) compiler_error("GET_SUBREG", `Unknown register name ${reg}`);
+    if (size === 8) return reg;
+    let subregs = REGS.get(reg);
+    if (size === 1) return subregs[2];
+    else if (size === 2) return subregs[1];
+    else if (size === 4) return subregs[0];
+    else compiler_error("GET_SUBREG", `Invalid size ${size}`);
+}
 
 export default function parse(toks, src_file_path, proj_path) {
     let asm = "format ELF64 executable 3\n";
@@ -29,7 +61,6 @@ export default function parse(toks, src_file_path, proj_path) {
             let tok = line.shift();
 
             if (curr_func_def == null && !TOP_LEVEL.has(tok.type)) compiler_error(tok.pos, "Keyword not allowed at top level!");
-
             switch (tok.type) {
                 case TOK_TYPE.INCLUDE:
                     {
@@ -108,6 +139,7 @@ export default function parse(toks, src_file_path, proj_path) {
                         let iden = line.shift();
                         if (iden.type !== TOK_TYPE.IDENTIFIER) compiler_error(tok.pos, `Expected identifier after type declaration \"${tok.type}\"`);
                         iden.val_type = tok.type;
+                        iden.size = TYPE_TO_SIZE.get(tok.type);
                         identifiers.push(iden);
                     }
                     break;
@@ -121,24 +153,25 @@ export default function parse(toks, src_file_path, proj_path) {
                 case TOK_TYPE.ASSIGN:
                     {
                         let iden = identifiers.pop();
+                        let mem_loc = var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset;
                         let eval_data = eval_expr(line, var_offset, var_map, str_lit_count); // Get rest of line as expression 
                         text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
                         text += "    mov rax, [mem_ptr]\n" +
                                 "    pop rsi\n" +
-                                `    mov qword[mem + rax + ${var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset}], rsi\n`;
+                                `    mov ${SIZE_TO_DIRECTIVE.get(iden.size)}[mem + rax + ${mem_loc}], ${get_subreg("rsi", iden.size)}\n`;
                         if (!var_map.has(iden.val)) {
-                            if (!iden.val_type) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
-                            var_map.set(iden.val, {start: var_offset, val_type: iden.val_type});
-                            var_offset += 8;
+                            if (iden.val_type === null) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
+                            var_map.set(iden.val, {start: var_offset, val_type: iden.val_type, size: iden.size});
+                            var_offset += iden.size;
                         }
                     }
                     break;
                 case TOK_TYPE.PARAM:
                     {  
                         let iden = identifiers.pop();
-                        if (!iden.val_type) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
-                        var_map.set(iden.val, {start: var_offset, val_type: iden.val_type});
-                        var_offset += 8;
+                        if (iden.val_type === null) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
+                        var_map.set(iden.val, {start: var_offset, val_type: iden.val_type, size: iden.size});
+                        var_offset += iden.size;
                     }
                     break;
                 case TOK_TYPE.RETURN:
@@ -232,8 +265,7 @@ function atod(str) {
 }
 
 function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
-    let text = "";
-    let data = "";
+    let text = "", data = "";
     let rpn_ordered_toks = shunting_yard(expr_toks);
     let res_stack = [];
     
@@ -245,19 +277,23 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             text += `    push str_${str_lit_count}\n`;
             str_lit_count++;
             var_offset += 8;
-            res_stack.push({type: "REF"});           
+            res_stack.push({type: "REF", size: tok.size});           
         } else if (tok.type === TOK_TYPE.IDENTIFIER) {
             if (!var_map.has(tok.val)) compiler_error(tok.pos, `Referencing undeclared identifier ${tok.val}`);
+            let iden = var_map.get(tok.val);
             text += "    push rax\n" +
                     "    mov rax, [mem_ptr]\n" +
-                    `    mov rsi, qword[mem + rax + ${var_map.get(tok.val).start}]\n` +
+                    `    mov ${get_subreg("rsi", iden.size)}, ${SIZE_TO_DIRECTIVE.get(iden.size)}[mem + rax + ${iden.start}]\n` +
                     "    pop rax\n" +
                     "    push rsi\n";
-            res_stack.push({type: "REF", name: tok.val});           
-        } else if (tok.prec) { // Operator
+            res_stack.push({type: "REF", name: tok.val, size: iden.size});           
+        } else if (tok.prec) { 
+            // Operator
             if (res_stack.length < 2) compiler_error(tok.pos, `Expected 2 operands for operator \"${tok.type}\"`);
             let arg_b = res_stack.pop();
             let arg_a = res_stack.pop();
+            let return_size;
+            
             if (RAW_VALUES.has(arg_b.type)) {
                 text += `    mov rdi, ${arg_b.val}\n`;
             } else if (arg_b.type === "REF") {
@@ -271,12 +307,15 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             switch (tok.type) {
                 case TOK_TYPE.ADD:
                     text += "    add rsi, rdi\n";
+                    return_size = 8;
                     break;
                 case TOK_TYPE.SUB:
                     text += "    sub rsi, rdi\n";
+                    return_size = 8;
                     break;
                 case TOK_TYPE.MULT:
                     text += "    imul rsi, rdi\n";
+                    return_size = 8;
                     break;
                 case TOK_TYPE.DIV:
                     text += "    push rax\n    push rdx\n" +
@@ -285,30 +324,35 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
                             "    idiv rdi\n" +
                             "    mov rsi, rax\n" +
                             "    pop rdx\n    pop rax\n";
+                    return_size = 8;
                     break;
                 case TOK_TYPE.EQ:
                     text += "    cmp rsi, rdi\n" +
                             "    mov rsi, 0\n" +
                             "    mov rdi, 1\n" +
                             `    cmove rsi, rdi\n`;
+                    return_size = 1;
                     break;
                 case TOK_TYPE.GT:
                     text += "    cmp rsi, rdi\n" +
                             "    mov rsi, 0\n" +
                             "    mov rdi, 1\n" +
                             `    cmovg rsi, rdi\n`;
+                    return_size = 1;
                     break;
                 case TOK_TYPE.LT:
                     text += "    cmp rsi, rdi\n" +
                             "    mov rsi, 0\n" +
                             "    mov rdi, 1\n" +
                             `    cmovl rsi, rdi\n`;
+                    return_size = 1;
                     break;
                 case TOK_TYPE.GTOEQ:
                     text += "    cmp rsi, rdi\n" +
                             "    mov rsi, 0\n" +
                             "    mov rdi, 1\n" +
                             `    cmovge rsi, rdi\n`;
+                    return_size = 1;
                     break;
                 case TOK_TYPE.LTOEQ:
                     text += "    cmp rsi, rdi\n" +
@@ -321,10 +365,19 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
                             "    mov rsi, 0\n" +
                             "    mov rdi, 1\n" +
                             `    cmovne rsi, rdi\n`;
+                    return_size = 1;
+                    break;
+                case TOK_TYPE.AND:
+                    text += "    and rsi, rdi\n";
+                    return_size = 1;
+                    break;
+                case TOK_TYPE.OR:
+                    text += "    or rsi, rdi\n";
+                    return_size = 1;
                     break;
             }
             text += "    push rsi\n";
-            res_stack.push({type: "REF"});
+            res_stack.push({type: "REF", size: return_size});
         } else if (tok.type === TOK_TYPE.FUNC_CALL) {
             let param_toks = [];
             text += `    add [mem_ptr], ${var_offset}\n`;
@@ -333,16 +386,19 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             }
             res_stack.pop(); // Discard DEF_CLOSE
             // Push args onto stack from nth to 1st arg
-            let func_call_var_offset = 8 * (param_toks.length - 1);
+            let func_call_var_offset = 0;
+            for (let i=1; i<param_toks.length; i++) {
+                func_call_var_offset += param_toks[i].size;
+            }
             for (let param_tok of param_toks) {
                 text += "    mov rax, [mem_ptr]\n";
                 if (param_tok.type === "REF") {
                     text += "    pop rsi\n" +
-                            `    mov qword[mem + rax + ${func_call_var_offset}], rsi\n`;
+                            `    mov ${SIZE_TO_DIRECTIVE.get(param_tok.size)}[mem + rax + ${func_call_var_offset}], ${get_subreg("rsi", param_tok.size)}\n`;
                 } else {
-                    text += `    mov qword[mem + rax + ${func_call_var_offset}], ${param_tok.val}\n`;
+                    text += `    mov ${SIZE_TO_DIRECTIVE.get(param_tok.size)}[mem + rax + ${func_call_var_offset}], ${param_tok.val}\n`;
                 }
-                func_call_var_offset -= 8;
+                func_call_var_offset -= param_tok.size;
             }
             text += `    call ${tok.val}\n` +
                     `    sub [mem_ptr], ${var_offset}\n` +

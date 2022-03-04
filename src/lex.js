@@ -34,17 +34,23 @@ export const TOK_TYPE = {
     GTOEQ: "GTOEQ",
     LTOEQ: "LTOEQ",
     NEQ: "NEQ",
+    AND: "AND",
+    OR: "OR",
     PARAM: "PARAM",
     WHILE: "WHILE",
     COMMENT: "COMMENT"
 }
 
+export const TYPE_TO_SIZE = new Map([
+    [TOK_TYPE.INT_TYPE, 8],
+    [TOK_TYPE.STRING_TYPE, 8],
+    [TOK_TYPE.BOOL_TYPE, 1],
+]);
+
 export default function tokenize(text) {
-    let toks = [];
-    let curr_line_toks = [];
+    let toks = [], curr_line_toks = [];
     let val = "";
-    let curr_line = 1;
-    let curr_char = 0;
+    let curr_line = 1, curr_char = 0;
     let in_str_lit = false;
 
     for (let idx=0; idx<text.length; idx++) {
@@ -111,11 +117,11 @@ function isBool(str) {
 }
 
 function scanToken(text) {
-    if (text[0] == "\"" && text[text.length - 1] == "\"") return {type: TOK_TYPE.STRING, val: text.slice(1, -1)};
+    if (text[0] == "\"" && text[text.length - 1] == "\"") return {type: TOK_TYPE.STRING, val: text.slice(1, -1), size: TYPE_TO_SIZE.get(TOK_TYPE.STRING_TYPE)};
 
-    if (isInt(text)) return {type: TOK_TYPE.INT, val: parseInt(text)};
+    if (isInt(text)) return {type: TOK_TYPE.INT, val: parseInt(text), size: TYPE_TO_SIZE.get(TOK_TYPE.INT_TYPE)};
 
-    if (isBool(text)) return {type: TOK_TYPE.BOOL, val: text === "yes" ? 1 : 0};
+    if (isBool(text)) return {type: TOK_TYPE.BOOL, val: text === "yes" ? 1 : 0, size: TYPE_TO_SIZE.get(TOK_TYPE.BOOL_TYPE)};
 
     switch (text) {
         case "include":
@@ -150,8 +156,6 @@ function scanToken(text) {
             return {type: TOK_TYPE.ELSE, val: null};
         case "endif":
             return {type: TOK_TYPE.IF_CLOSE, val: null};            
-        case "^":
-            return {type: TOK_TYPE.PUSH, val: null};
         case "add":
             return {type: TOK_TYPE.ADD, val: null, prec: 2}  
         case "sub":
@@ -172,6 +176,10 @@ function scanToken(text) {
             return {type: TOK_TYPE.GTOEQ, val: null, prec: 1}
         case "!=":
             return {type: TOK_TYPE.NEQ, val: null, prec: 1}
+        case "and":
+            return {type: TOK_TYPE.AND, val: null, prec: 1}        
+        case "or":
+            return {type: TOK_TYPE.OR, val: null, prec: 1}
         case "dec":
             return {type: TOK_TYPE.PARAM, val: null}
         case "//":
