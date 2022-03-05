@@ -11,6 +11,5 @@
   "license": "GPL-2.0-only",
   "dependencies": {
     "argparse": "^2.0.1",
-    "shelljs": "^0.8.5"
   }
 }

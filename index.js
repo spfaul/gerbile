@@ -35,10 +35,10 @@ writeFileSync(`${args.SRC_FILE}.asm`, asm, (err) => {
 	if (err) console.error(err);
 });
 
-let exit_code = run_command(`fasm ${args.SRC_FILE}.asm ${args.OUT_FILE}`);
+let exit_code = run_command("fasm", [`${args.SRC_FILE}.asm`, args.OUT_FILE]);
 if (exit_code === 0) {
-    exit_code = run_command(`chmod +x ${args.OUT_FILE}`);
+    exit_code = run_command("chmod", ["+x", args.OUT_FILE]);
 }
 if (args.run && exit_code === 0) {
-    run_command(`./${args.OUT_FILE}`, {code: true});
+    run_command(`./${args.OUT_FILE}`, [], {code: true});
 }

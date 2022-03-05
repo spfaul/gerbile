@@ -47,14 +47,10 @@ export default function parse(toks, src_file_path, proj_path) {
     let text =  "segment readable executable\n" +
                 "entry main\n" +
                 `include \"${path.relative(path.dirname(src_file_path), path.join(proj_path, "std/std.asm"))}\"\n`;
-    let contexts = [];
-    let identifiers = [];
-    let return_addrs = [];
+    let contexts = [], identifiers = [], return_addrs = [];
     let curr_func_def = null;
     let var_map;
-    let var_offset = 0;
-    let addr_count = 0;
-    let str_lit_count = 0;
+    let var_offset = 0, addr_count = 0, str_lit_count = 0, memorys_count = 0;
     while (toks.length > 0) {
         let line = toks.shift();
         while (line.length > 0) {
@@ -143,6 +139,17 @@ export default function parse(toks, src_file_path, proj_path) {
                         identifiers.push(iden);
                     }
                     break;
+                case TOK_TYPE.MEM_TYPE:
+                    {
+                        let iden = line.shift();
+                        if (iden.type !== TOK_TYPE.IDENTIFIER) compiler_error(tok.pos, `Expected identifier after type declaration \"${tok.type}\"`);
+                        let size = line.shift();
+                        if (size.type !== TOK_TYPE.INT) compiler_error(tok.pos, `Expected int after type declaration \"${tok.type}\"`);
+                        data += `mem_${memorys_count}: rb ${size.val}\n`;
+                        var_map.set(iden.val, {start: var_offset, val_type: tok.type, size: 8, mem_id: memorys_count});
+                        memorys_count++;
+                    }
+                    break;
                 case TOK_TYPE.IDENTIFIER:
                     if (var_map.has(tok.val)) {
                         identifiers.push(Object.assign(tok, var_map.get(tok.val)));
@@ -170,7 +177,10 @@ export default function parse(toks, src_file_path, proj_path) {
                     {  
                         let iden = identifiers.pop();
                         if (iden.val_type === null) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
-                        var_map.set(iden.val, {start: var_offset, val_type: iden.val_type, size: iden.size});
+                        let mem_loc = var_offset
+                        if (iden.val_type === TOK_TYPE.STR_TYPE) mem_loc = null; // strings arent stored in memory stack
+                        console.log(iden)
+                        var_map.set(iden.val, {start: mem_loc, val_type: iden.val_type, size: iden.size});
                         var_offset += iden.size;
                     }
                     break;
@@ -281,10 +291,13 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
         } else if (tok.type === TOK_TYPE.IDENTIFIER) {
             if (!var_map.has(tok.val)) compiler_error(tok.pos, `Referencing undeclared identifier ${tok.val}`);
             let iden = var_map.get(tok.val);
-            text += "    push rax\n" +
-                    "    mov rax, [mem_ptr]\n" +
+            if (iden.val_type === TOK_TYPE.MEM_TYPE) {
+                text += `    push mem_${iden.mem_id}\n`;
+                res_stack.push({type: "REF", name: tok.val, size: iden.size});           
+                continue;
+            }
+            text += "    mov rax, [mem_ptr]\n" +
                     `    mov ${get_subreg("rsi", iden.size)}, ${SIZE_TO_DIRECTIVE.get(iden.size)}[mem + rax + ${iden.start}]\n` +
-                    "    pop rax\n" +
                     "    push rsi\n";
             res_stack.push({type: "REF", name: tok.val, size: iden.size});           
         } else if (tok.prec) { 
@@ -294,16 +307,12 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             let arg_a = res_stack.pop();
             let return_size;
             
-            if (RAW_VALUES.has(arg_b.type)) {
-                text += `    mov rdi, ${arg_b.val}\n`;
-            } else if (arg_b.type === "REF") {
-                text += "    pop rdi\n";
-            }
-            if (RAW_VALUES.has(arg_a.type)) {
-                text += `    mov rsi, ${arg_a.val}\n`;
-            } else if (arg_a.type === "REF") {
-                text += "    pop rsi\n";
-            }
+            if (RAW_VALUES.has(arg_b.type)) text += `    mov rdi, ${arg_b.val}\n`;
+            else if (arg_b.type === "REF") text += "    pop rdi\n";
+            
+            if (RAW_VALUES.has(arg_a.type)) text += `    mov rsi, ${arg_a.val}\n`;
+            else if (arg_a.type === "REF") text += "    pop rsi\n";
+
             switch (tok.type) {
                 case TOK_TYPE.ADD:
                     text += "    add rsi, rdi\n";
@@ -408,6 +417,7 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             res_stack.push(tok);
         }
     }
+    // TODO: do a seperate check of RPN toks beforehand
     if (res_stack.length > 1) compiler_error(res_stack.at(-1).pos, `Unexpected token in expression`);
     if (res_stack.length == 1 && RAW_VALUES.has(res_stack[0].type)) {
         text += `    mov rsi, ${res_stack[0].val}\n` +
@@ -416,7 +426,6 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
     
     return {text, data, str_lit_count};
 }
-
 function shunting_yard(toks) {
     let out_stack = [];
     let op_stack = [];
@@ -449,7 +458,7 @@ function shunting_yard(toks) {
             op_stack.pop(); // Discard DEF_OPEN
         } else if (tok.type === TOK_TYPE.COMMENT) {
             toks.length = 0;
-            break;  
+            break; 
         } else {
             compiler_error(tok.pos, `Unexpected type ${tok.type} while parsing expression`);
         }
