@@ -1,0 +1,45 @@
+filetype: gerbile
+
+detect:
+    filename: "(\\.gb$)"
+
+rules:
+    - constant.number: "\\b[-+]?([1-9][0-9]*|0[0-7]*|0x[0-9a-fA-F]+)([uU][lL]?|[lL][uU]?)?\\b"
+    - constant.number: "\\b[-+]?([0-9]+\\.[0-9]*|[0-9]*\\.[0-9]+)([EePp][+-]?[0-9]+)?[fFlL]?"
+    - constant.number: "\\b[-+]?([0-9]+[EePp][+-]?[0-9]+)[fFlL]?"
+    #- identifier: "[A-Za-z_][A-Za-z0-9_]*[[:space:]]*[(]"
+    # ^ this is not correct usage of the identifier color
+    # - symbol.brackets: "(\\in|\\end)"
+    # - symbol.brackets: "(\\(|\\))"
+    - statement: "\\b(call|proc|in|do|end|mem|include|ret|dec)\\b"
+    - statement: "\\b(if|elif|else|endif|==|!=|>=|<=|>|<)\\b"
+    - statement: "\\b(add|sub|mul|div|loop|and|or)\\b"
+    - constant: "\\b(yes|no)\\b"
+    - type: "\\b(int|bool|str)\\b"
+
+    # - constant: "/[^*]([^/]|(\\\\/))*[^\\\\]/[gim]*"
+    - constant: "\\\\[0-7][0-7]?[0-7]?|\\\\x[0-9a-fA-F]+|\\\\[bfnrt'\"\\?\\\\]"
+
+    - constant.string:
+        start: "\""
+        end: "\""
+        skip: "\\\\."
+        rules:
+            - constant.specialChar: "\\\\."
+
+    - constant.string:
+        start: "'"
+        end: "'"
+        skip: "\\\\."
+        rules:
+            - constant.specialChar: "\\\\."
+
+    - constant.bool: "\\b(yes|no)\\b"
+    - constant.bool.false: "\\b(no)\\b"
+    - constant.bool.true: "\\b(yes)\\b"
+
+    - comment:
+        start: "//"
+        end: "$"
+        rules:
+            - todo: "(TODO|XXX|FIXME)"

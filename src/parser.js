@@ -182,7 +182,6 @@ export default function parse(toks, src_file_path, proj_path) {
                         if (iden.val_type === null) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
                         let mem_loc = var_offset
                         if (iden.val_type === TOK_TYPE.STR_TYPE) mem_loc = null; // strings arent stored in memory stack
-                        console.log(iden)
                         var_map.set(iden.val, {start: mem_loc, val_type: iden.val_type, size: iden.size});
                         var_offset += iden.size;
                     }
