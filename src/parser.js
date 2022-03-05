@@ -48,6 +48,7 @@ export default function parse(toks, src_file_path, proj_path) {
                 "entry main\n" +
                 `include \"${path.relative(path.dirname(src_file_path), path.join(proj_path, "std/std.asm"))}\"\n`;
     let contexts = [], identifiers = [], return_addrs = [];
+    let included_files = new Set([path.normalize(src_file_path)]);
     let curr_func_def = null;
     let var_map;
     let var_offset = 0, addr_count = 0, str_lit_count = 0, memorys_count = 0;
@@ -55,14 +56,16 @@ export default function parse(toks, src_file_path, proj_path) {
         let line = toks.shift();
         while (line.length > 0) {
             let tok = line.shift();
-
             if (curr_func_def == null && !TOP_LEVEL.has(tok.type)) compiler_error(tok.pos, "Keyword not allowed at top level!");
             switch (tok.type) {
                 case TOK_TYPE.INCLUDE:
                     {
-                        let file_path = line.shift();
-                        if (file_path === undefined || file_path.type !== TOK_TYPE.STRING) compiler_error(tok.pos, "Invalid or missing include file path");
-                        let inc_text = readFileSync(file_path.val, {encoding:"utf8", flag: "r"}, (err, data) => {
+                        let file_path_tok = line.shift();
+                        if (file_path_tok === undefined || file_path_tok.type !== TOK_TYPE.STRING) compiler_error(tok.pos, "Invalid or missing include file path");
+                        let file_path = path.normalize(file_path_tok.val);
+                        if (included_files.has(file_path)) compiler_error(file_path_tok.pos, `\"${file_path_tok.val}\" has already been included`);
+                        included_files.add(file_path); //  Avoid circular dependencies
+                        let inc_text = readFileSync(file_path, {encoding:"utf8", flag: "r"}, (err, data) => {
                             if (err) compiler_error(file_path.pos, `Error while reading file at ${file_path.val}`);
                         });
                         let inc_toks = tokenize(inc_text);
@@ -412,7 +415,7 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             text += `    call ${tok.val}\n` +
                     `    sub [mem_ptr], ${var_offset}\n` +
                     "    push rsi\n";
-            res_stack.push({type: "REF"});
+            res_stack.push({type: "REF", size: 8}); // TODO: dynamic return value size
         } else if (tok.type === TOK_TYPE.DEF_CLOSE) {
             res_stack.push(tok);
         }

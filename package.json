@@ -10,6 +10,6 @@
   "author": "",
   "license": "GPL-2.0-only",
   "dependencies": {
-    "argparse": "^2.0.1",
+    "argparse": "^2.0.1"
   }
 }
