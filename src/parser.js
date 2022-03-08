@@ -5,7 +5,7 @@ import assert from "assert";
 import { readFileSync } from "fs";
 
 const RAW_VALUES = new Set([TOK_TYPE.INT, TOK_TYPE.BOOL]);
-const DISALLOWED_TOP_LEVEL = new Set([TOK_TYPE.RETURN]);
+const TOP_LEVEL = new Set([TOK_TYPE.INCLUDE, TOK_TYPE.FUNC, TOK_TYPE.DEF_OPEN, TOK_TYPE.COMMENT]);
 const SIZE_TO_DIRECTIVE = new Map([
     [1, "byte"],
     [8, "qword"]
@@ -50,15 +50,13 @@ export default function parse(toks, src_file_path, proj_path) {
     let contexts = [], identifiers = [], return_addrs = [];
     let included_files = new Set([path.normalize(src_file_path)]);
     let curr_func_def = null;
-    let global_var_map = new Map(), local_var_map = new Map();
+    let var_map;
     let var_offset = 0, addr_count = 0, str_lit_count = 0, memorys_count = 0;
     while (toks.length > 0) {
         let line = toks.shift();
         while (line.length > 0) {
             let tok = line.shift();
-            
-            if (curr_func_def == null && DISALLOWED_TOP_LEVEL.has(tok.type)) compiler_error(tok.pos, "Keyword not allowed at top level!");
-
+            if (curr_func_def == null && !TOP_LEVEL.has(tok.type)) compiler_error(tok.pos, "Keyword not allowed at top level!");
             switch (tok.type) {
                 case TOK_TYPE.INCLUDE:
                     {
@@ -80,7 +78,7 @@ export default function parse(toks, src_file_path, proj_path) {
                     if (func_name === undefined || func_name.type !== TOK_TYPE.IDENTIFIER) compiler_error("Invalid or missing function name");
                     text += `${func_name.val}:\n`;
                     curr_func_def = func_name.val;
-                    local_var_map = new Map(global_var_map); // inherit global variables
+                    var_map = new Map();
                     var_offset = 0;
                     break;
                 case TOK_TYPE.DEF_OPEN:
@@ -127,7 +125,7 @@ export default function parse(toks, src_file_path, proj_path) {
                 case TOK_TYPE.FUNC_CALL:
                     {
                         line.unshift(tok);
-                        let eval_data = eval_expr(line, var_offset, local_var_map, str_lit_count);
+                        let eval_data = eval_expr(line, var_offset, var_map, str_lit_count);
                         text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
                         text += "    pop rsi\n";
                         line.shift();
@@ -151,13 +149,13 @@ export default function parse(toks, src_file_path, proj_path) {
                         let size = line.shift();
                         if (size.type !== TOK_TYPE.INT) compiler_error(tok.pos, `Expected int after type declaration \"${tok.type}\"`);
                         data += `mem_${memorys_count}: rb ${size.val}\n`;
-                        local_var_map.set(iden.val, {start: var_offset, val_type: tok.type, size: 8, mem_id: memorys_count});
+                        var_map.set(iden.val, {start: var_offset, val_type: tok.type, size: 8, mem_id: memorys_count});
                         memorys_count++;
                     }
                     break;
                 case TOK_TYPE.IDENTIFIER:
-                    if (local_var_map.has(tok.val)) {
-                        identifiers.push(Object.assign(tok, local_var_map.get(tok.val)));
+                    if (var_map.has(tok.val)) {
+                        identifiers.push(Object.assign(tok, var_map.get(tok.val)));
                     } else {
                         compiler_error(tok.pos, `Undeclared identifier ${tok.val}`);
                     }
@@ -165,23 +163,20 @@ export default function parse(toks, src_file_path, proj_path) {
                 case TOK_TYPE.ASSIGN:
                     {
                         let iden = identifiers.pop();
-                        let iden_data = local_var_map.get(iden.val);
-                        let mem_loc = local_var_map.has(iden.val) ? local_var_map.get(iden.val).start : var_offset;
-                        let eval_data = eval_expr(line, var_offset, local_var_map, str_lit_count); // Get rest of line as expression 
+                        let iden_data = var_map.get(iden.val);
+                        let mem_loc = var_map.has(iden.val) ? var_map.get(iden.val).start : var_offset;
+                        let eval_data = eval_expr(line, var_offset, var_map, str_lit_count); // Get rest of line as expression 
                         text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
                         text += "    mov rax, [mem_ptr]\n" +
                                 "    pop rsi\n";
-
                         if (iden_data !== undefined && iden_data.val_type === TOK_TYPE.MEM_TYPE) {
-                            text += `    mov [mem_${iden_data.mem_id}], rsi\n`;
+                            text += `    mov ${SIZE_TO_DIRECTIVE.get(iden.size)}[mem_${iden_data.mem_id}], rsi\n`;
                         } else {
                             text += `    mov ${SIZE_TO_DIRECTIVE.get(iden.size)}[mem + rax + ${mem_loc}], ${get_subreg("rsi", iden.size)}\n`;
                         }
-                        
-                        let var_storage = curr_func_def === null ? global_var_map : local_var_map;
-                        if (!var_storage.has(iden.val)) {
+                        if (!var_map.has(iden.val)) {
                             if (iden.val_type === null) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
-                            var_storage.set(iden.val, {start: var_offset, val_type: iden.val_type, size: iden.size});
+                            var_map.set(iden.val, {start: var_offset, val_type: iden.val_type, size: iden.size});
                             var_offset += iden.size;
                         }
                     }
@@ -192,14 +187,14 @@ export default function parse(toks, src_file_path, proj_path) {
                         if (iden.val_type === null) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
                         let mem_loc = var_offset
                         if (iden.val_type === TOK_TYPE.STR_TYPE) mem_loc = null; // strings arent stored in memory stack
-                        local_var_map.set(iden.val, {start: mem_loc, val_type: iden.val_type, size: iden.size});
+                        var_map.set(iden.val, {start: mem_loc, val_type: iden.val_type, size: iden.size});
                         var_offset += iden.size;
                     }
                     break;
                 case TOK_TYPE.RETURN:
                     {
                         if (curr_func_def === null) compiler_error("Cannot return outside of function");
-                        let eval_data = eval_expr(line, var_offset, local_var_map, str_lit_count);
+                        let eval_data = eval_expr(line, var_offset, var_map, str_lit_count);
                         text += eval_data.text; data += eval_data.data; str_lit_count = eval_data.str_lit_count;
                         if (curr_func_def === "main") {
                             text += "    mov rax, 60\n" +
@@ -219,7 +214,7 @@ export default function parse(toks, src_file_path, proj_path) {
                         return_addrs.push(addr_count++);
                         let eval_data = eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
                                                   var_offset,
-                                                  local_var_map,
+                                                  var_map,
                                                   str_lit_count);
                         line[0].val = "IF";
                         if (line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for IF statement, found nothing");
@@ -239,7 +234,7 @@ export default function parse(toks, src_file_path, proj_path) {
                     {
                         let eval_data = eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
                                                   var_offset,
-                                                  local_var_map,
+                                                  var_map,
                                                   str_lit_count);
                         if (line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for ELSE IF statement, found nothing");
                         line[0].val = "IF";
@@ -257,7 +252,7 @@ export default function parse(toks, src_file_path, proj_path) {
                         return_addrs.push(addr_count); // loop branch
                         let eval_data = eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
                                                   var_offset,
-                                                  local_var_map,
+                                                  var_map,
                                                   str_lit_count);
                         if (line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for LOOP statement, found nothing");                        
                         line[0].val = "WHILE";
@@ -286,7 +281,7 @@ function atod(str) {
     return charCodeArray.join(", ");   
 }
 
-function eval_expr(expr_toks, var_offset, local_var_map, str_lit_count) {
+function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
     let text = "", data = "";
     let rpn_ordered_toks = shunting_yard(expr_toks);
     let res_stack = [];
@@ -301,8 +296,8 @@ function eval_expr(expr_toks, var_offset, local_var_map, str_lit_count) {
             var_offset += 8;
             res_stack.push({type: "REF", size: tok.size});           
         } else if (tok.type === TOK_TYPE.IDENTIFIER) {
-            if (!local_var_map.has(tok.val)) compiler_error(tok.pos, `Referencing undeclared identifier ${tok.val}`);
-            let iden = local_var_map.get(tok.val);
+            if (!var_map.has(tok.val)) compiler_error(tok.pos, `Referencing undeclared identifier ${tok.val}`);
+            let iden = var_map.get(tok.val);
             if (iden.val_type === TOK_TYPE.MEM_TYPE) {
                 text += `    push mem_${iden.mem_id}\n`;
                 res_stack.push({type: "REF", name: tok.val, size: iden.size});           
@@ -436,9 +431,8 @@ function eval_expr(expr_toks, var_offset, local_var_map, str_lit_count) {
                 `    push rsi\n`;
     }
     
-    return { text, data, str_lit_count };
+    return {text, data, str_lit_count};
 }
-
 function shunting_yard(toks) {
     let out_stack = [];
     let op_stack = [];
