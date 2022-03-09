@@ -1,0 +1,18 @@
+include "std/std.gb"
+
+proc main in
+    int arg_count =
+    str path = 
+    call print "No. of args: " end
+    call print_int arg_count end
+    call print "\n" end
+    
+    call println path end
+    loop arg_count sub 1 != 0 do
+        str arg =
+        call println arg end
+        arg_count = arg_count sub 1
+    end
+    
+    ret 0
+end

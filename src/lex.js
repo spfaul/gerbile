@@ -39,7 +39,9 @@ export const TOK_TYPE = {
     PARAM: "PARAM",
     WHILE: "WHILE",
     COMMENT: "COMMENT",
-    MEM_TYPE: "MEM_TYPE"
+    MEM_TYPE: "MEM_TYPE",
+    POP: "POP",
+    PUSH: "PUSH"
 }
 
 export const TYPE_TO_SIZE = new Map([
@@ -189,6 +191,10 @@ function scanToken(text) {
             return {type: TOK_TYPE.WHILE, val: null}
         case "mem":
             return {type: TOK_TYPE.MEM_TYPE, val: null}
+        case "pop":
+            return {type: TOK_TYPE.POP, val: null}
+        case "push":
+            return {type: TOK_TYPE.PUSH, val: null}
         default:
             return {type: TOK_TYPE.IDENTIFIER, val: text, val_type: null};
     }

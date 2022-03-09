@@ -306,7 +306,7 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
             text += "    mov rax, [mem_ptr]\n" +
                     `    mov ${get_subreg("rsi", iden.size)}, ${SIZE_TO_DIRECTIVE.get(iden.size)}[mem + rax + ${iden.start}]\n` +
                     "    push rsi\n";
-            res_stack.push({type: "REF", name: tok.val, size: iden.size});           
+            res_stack.push({type: "REF", name: tok.val, size: iden.size});
         } else if (tok.prec) { 
             // Operator
             if (res_stack.length < 2) compiler_error(tok.pos, `Expected 2 operands for operator \"${tok.type}\"`);
@@ -441,7 +441,7 @@ function shunting_yard(toks) {
     while (toks.length > 0) {
         let tok = toks.shift();
 
-        if (RAW_VALUES.has(tok.type) || tok.type === TOK_TYPE.STRING || tok.type === TOK_TYPE.IDENTIFIER) {
+        if (RAW_VALUES.has(tok.type) || [TOK_TYPE.STRING, TOK_TYPE.IDENTIFIER, TOK_TYPE.PUSH, TOK_TYPE.POP].includes(tok.type)) {
             out_stack.push(tok);
         } else if (tok.prec) {
             while (op_stack.length > 0 && op_stack.at(-1).prec >= tok.prec) {
@@ -457,8 +457,8 @@ function shunting_yard(toks) {
         } else if (tok.type === TOK_TYPE.DEF_OPEN) {
             op_stack.push(tok);
         } else if (tok.type === TOK_TYPE.DEF_CLOSE) {
+            // Prioritise pushing all ops within DEF_OPEN and DEF_CLOSE
             while (op_stack.length > 0 && op_stack.at(-1).type !== TOK_TYPE.DEF_OPEN) {
-                // Prioritise pushing all ops within DEF_OPEN and DEF_CLOSE
                 out_stack.push(op_stack.pop());
             }
             if (op_stack.length == 0) compiler_error(tok.pos, "Mismatched Parenthesis while parsing expression");

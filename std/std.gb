@@ -1,3 +1,9 @@
+proc sleep in int time dec
+    mem time_mem 8
+    time_mem = time
+    call scall2 35 time_mem 0 end
+end
+
 proc print in str text dec
     int len = call strlen text end
     call scall3 1 1 text len end

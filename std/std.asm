@@ -246,3 +246,8 @@ strlen:
     pop rbx
     pop rdi
     ret
+pop_arg:
+    pop rsi
+    ret
+    
+    
