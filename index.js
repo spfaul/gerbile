@@ -25,7 +25,7 @@ let text = readFileSync(args.SRC_FILE, {encoding:"utf8", flag:"r"}, (err, data) 
 	if (err) console.error(err);
 })
 
-let toks = tokenize(text);
+let toks = tokenize(path.normalize(args.SRC_FILE), text);
 if (args.tokens) console.log(toks);
 
 let asm = parse(toks, args.SRC_FILE, __dirname);

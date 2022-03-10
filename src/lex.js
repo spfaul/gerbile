@@ -11,7 +11,7 @@ export const TOK_TYPE = {
     PUSH: "PUSH",
     INT_TYPE: "INT_TYPE",
     BOOL_TYPE: "BOOL_TYPE",
-    STRING_TYPE: "STRING_TYPE",
+    ADDR_TYPE: "ADDR_TYPE",
     TYPE_HINT: "TYPE_HINT",
     ASSIGN: "ASSIGN",
     INT: "INT",
@@ -46,11 +46,11 @@ export const TOK_TYPE = {
 
 export const TYPE_TO_SIZE = new Map([
     [TOK_TYPE.INT_TYPE, 8],
-    [TOK_TYPE.STRING_TYPE, 8],
+    [TOK_TYPE.ADDR_TYPE, 8],
     [TOK_TYPE.BOOL_TYPE, 1],
 ]);
 
-export default function tokenize(text) {
+export default function tokenize(filename, text) {
     let toks = [], curr_line_toks = [];
     let val = "";
     let curr_line = 1, curr_char = 0;
@@ -82,14 +82,15 @@ export default function tokenize(text) {
         } else if (WHITESPACE.includes(c)) {
             if (val) {
                 let tok = scanToken(val);
-                tok.pos = `${curr_line}:${curr_char - val.length}`;
+                tok.pos = `[${filename}] ${curr_line}:${curr_char - val.length}`;
                 curr_line_toks.push(tok);
                 val = "";
             }
         } else if (idx == text.length - 1) {
             val += c;
             let tok = scanToken(val);
-            tok.pos = `${curr_line}:${curr_char - val.length + 1}`;
+            tok.pos = `[${filename}] ${curr_line}:${curr_char - val.length + 1}`;
+            tok.filename = filename;
             curr_line_toks.push(tok);
             toks.push(curr_line_toks);
         } else {
@@ -106,7 +107,6 @@ export default function tokenize(text) {
         }
     }
 
-
     return toks;
 }
 
@@ -120,7 +120,7 @@ function isBool(str) {
 }
 
 function scanToken(text) {
-    if (text[0] == "\"" && text[text.length - 1] == "\"") return {type: TOK_TYPE.STRING, val: text.slice(1, -1), size: TYPE_TO_SIZE.get(TOK_TYPE.STRING_TYPE)};
+    if (text[0] == "\"" && text[text.length - 1] == "\"") return {type: TOK_TYPE.STRING, val: text.slice(1, -1), size: TYPE_TO_SIZE.get(TOK_TYPE.ADDR_TYPE)};
 
     if (isInt(text)) return {type: TOK_TYPE.INT, val: parseInt(text), size: TYPE_TO_SIZE.get(TOK_TYPE.INT_TYPE)};
 
@@ -141,8 +141,8 @@ function scanToken(text) {
             return {type: TOK_TYPE.INT_TYPE, val: null};
         case "bool":
             return {type: TOK_TYPE.BOOL_TYPE, val: null};
-        case "str":
-            return {type: TOK_TYPE.STRING_TYPE, val: null};
+        case "addr":
+            return {type: TOK_TYPE.ADDR_TYPE, val: null};
         case "~":
             return {type: TOK_TYPE.TYPE_HINT, val: null};
         case "=":

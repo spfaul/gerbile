@@ -68,7 +68,7 @@ export default function parse(toks, src_file_path, proj_path) {
                         let inc_text = readFileSync(file_path, {encoding:"utf8", flag: "r"}, (err, data) => {
                             if (err) compiler_error(file_path.pos, `Error while reading file at ${file_path.val}`);
                         });
-                        let inc_toks = tokenize(inc_text);
+                        let inc_toks = tokenize(file_path, inc_text);
                         toks.unshift(...inc_toks);
                     }
                     break;
@@ -133,7 +133,7 @@ export default function parse(toks, src_file_path, proj_path) {
                     }
                 case TOK_TYPE.INT_TYPE:
                 case TOK_TYPE.BOOL_TYPE:
-                case TOK_TYPE.STRING_TYPE:
+                case TOK_TYPE.ADDR_TYPE:
                     {
                         let iden = line.shift();
                         if (iden.type !== TOK_TYPE.IDENTIFIER) compiler_error(tok.pos, `Expected identifier after type declaration \"${tok.type}\"`);
@@ -183,12 +183,12 @@ export default function parse(toks, src_file_path, proj_path) {
                     break;
                 case TOK_TYPE.PARAM:
                     {  
-                        let iden = identifiers.pop();
-                        if (iden.val_type === null) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
-                        let mem_loc = var_offset
-                        if (iden.val_type === TOK_TYPE.STR_TYPE) mem_loc = null; // strings arent stored in memory stack
-                        var_map.set(iden.val, {start: mem_loc, val_type: iden.val_type, size: iden.size});
-                        var_offset += iden.size;
+                        while (identifiers.length > 0) {
+                            let iden = identifiers.pop();
+                            if (iden.val_type === null) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
+                            var_map.set(iden.val, {start: var_offset, val_type: iden.val_type, size: iden.size});
+                            var_offset += iden.size;
+                        }
                     }
                     break;
                 case TOK_TYPE.RETURN:

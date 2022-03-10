@@ -9,9 +9,7 @@ proc main in
     ret 0
 end
 
-proc fib in
-    int n dec
-    
+proc fib in int n dec
     if n < 2 do
         ret n
     end else do
