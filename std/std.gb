@@ -32,3 +32,8 @@ proc read in int fd int size dec
     call scall3 0 fd s size end 
     ret s
 end
+
+proc println_int in int n dec
+    call print_int n end
+    call print "\n" end
+end

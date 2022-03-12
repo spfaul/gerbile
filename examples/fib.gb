@@ -4,8 +4,10 @@ proc main in
     int i = 1
     loop i < 20 do
         call print_int call fib i end end
+        call print " " end
         i = i add 1
     end
+    call print "\n" end
     ret 0
 end
 

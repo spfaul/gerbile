@@ -11,7 +11,7 @@ print_int:
         mov     BYTE [rbp-9], al
         mov     eax, 32
         sub     rax, QWORD [rbp-8]
-        mov     BYTE [rbp-48+rax], 10
+;        mov     BYTE [rbp-48+rax], 10 ; newline
         cmp     BYTE [rbp-9], 0
         je      .L3
         neg     QWORD [rbp-56]
@@ -245,9 +245,5 @@ strlen:
     pop rcx
     pop rbx
     pop rdi
-    ret
-pop_arg:
-    pop rsi
-    ret
-    
+    ret    
     

@@ -3,7 +3,7 @@ include "std/std.gb"
 proc main in
     int arg_count =
     addr path = 
-    call print_int arg_count end
+    call println_int arg_count end
     call println path end
 
     loop in arg_count sub 1 end != 0 do

@@ -98,13 +98,13 @@ close:
     ret
 write:
     mov rax, [mem_ptr]
+    mov rsi, qword[mem + rax + 8]
+    push rsi
+    mov rax, [mem_ptr]
     mov rsi, qword[mem + rax + 0]
     push rsi
     mov rax, [mem_ptr]
-    mov rsi, qword[mem + rax + 8]
-    push rsi
-    mov rax, [mem_ptr]
-    mov rsi, qword[mem + rax + 8]
+    mov rsi, qword[mem + rax + 0]
     push rsi
     add [mem_ptr], 16
     mov rax, [mem_ptr]
@@ -132,10 +132,10 @@ write:
     ret
 open:
     mov rax, [mem_ptr]
-    mov rsi, qword[mem + rax + 0]
+    mov rsi, qword[mem + rax + 8]
     push rsi
     mov rax, [mem_ptr]
-    mov rsi, qword[mem + rax + 8]
+    mov rsi, qword[mem + rax + 0]
     push rsi
     add [mem_ptr], 16
     mov rax, [mem_ptr]
@@ -162,11 +162,11 @@ open:
     ret
 read:
     mov rax, [mem_ptr]
-    mov rsi, qword[mem + rax + 0]
+    mov rsi, qword[mem + rax + 8]
     push rsi
     push mem_1
     mov rax, [mem_ptr]
-    mov rsi, qword[mem + rax + 8]
+    mov rsi, qword[mem + rax + 0]
     push rsi
     add [mem_ptr], 16
     mov rax, [mem_ptr]
@@ -188,6 +188,28 @@ read:
     pop rsi
     ret
     ret
+println_int:
+    mov rax, [mem_ptr]
+    mov rsi, qword[mem + rax + 0]
+    push rsi
+    add [mem_ptr], 8
+    mov rax, [mem_ptr]
+    pop rsi
+    mov qword[mem + rax + 0], rsi
+    call print_int
+    sub [mem_ptr], 8
+    push rsi
+    pop rsi
+    push str_1
+    add [mem_ptr], 16
+    mov rax, [mem_ptr]
+    pop rsi
+    mov qword[mem + rax + 0], rsi
+    call print
+    sub [mem_ptr], 16
+    push rsi
+    pop rsi
+    ret
 main:
     mov rax, [mem_ptr]
     pop rsi
@@ -195,15 +217,6 @@ main:
     mov rax, [mem_ptr]
     pop rsi
     mov qword[mem + rax + 8], rsi
-    push str_1
-    add [mem_ptr], 24
-    mov rax, [mem_ptr]
-    pop rsi
-    mov qword[mem + rax + 0], rsi
-    call print
-    sub [mem_ptr], 24
-    push rsi
-    pop rsi
     mov rax, [mem_ptr]
     mov rsi, qword[mem + rax + 0]
     push rsi
@@ -211,7 +224,7 @@ main:
     mov rax, [mem_ptr]
     pop rsi
     mov qword[mem + rax + 0], rsi
-    call print_int
+    call println_int
     sub [mem_ptr], 16
     push rsi
     pop rsi
@@ -285,4 +298,4 @@ mem_ptr dq 0
 mem_0: rb 8
 str_0: db 10, 0
 mem_1: rb 20
-str_1: db 78, 111, 46, 32, 111, 102, 32, 97, 114, 103, 115, 58, 32, 0
+str_1: db 10, 0
