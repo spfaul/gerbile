@@ -339,12 +339,21 @@ function eval_expr(expr_toks, var_offset, var_map, str_lit_count) {
                     break;
                 case TOK_TYPE.DIV:
                     text += "    push rax\n    push rdx\n" +
-                            "    mov rdx, 0\n" +
+                            "    xor rdx, rdx\n" +
                             "    mov rax, rsi\n" +
                             "    idiv rdi\n" +
                             "    mov rsi, rax\n" +
                             "    pop rdx\n    pop rax\n";
                     return_size = 8;
+                    break;
+                case TOK_TYPE.MOD:
+                    text += "    push rax\n    push rdx\n" +
+                            "    xor rdx, rdx\n" +
+                            "    mov rax, rsi\n" +
+                            "    idiv rdi\n" +
+                            "    mov rsi, rdx\n" +
+                            "    pop rdx\n    pop rax\n";
+                    return_size = 8;                            
                     break;
                 case TOK_TYPE.EQ:
                     text += "    cmp rsi, rdi\n" +

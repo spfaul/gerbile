@@ -1,0 +1,25 @@
+include "std/std.gb"
+
+proc main in
+    int n = 600851475143
+    loop yes do
+        int p = call smallest_prime_factor n end
+        if p < n do
+            n = n div p
+        end else do
+            call println_int n end
+            ret 0            
+        endif
+    end
+end
+
+proc smallest_prime_factor in int n dec
+    int i = 2
+    loop i < n div 2 add 1 do
+        if n mod i == 0 do
+            ret i
+        endif
+        i = i add 1
+    end
+    ret n
+end

@@ -28,6 +28,7 @@ export const TOK_TYPE = {
     SUB: "SUB",
     MULT: "MUL",
     DIV: "DIV",
+    MOD: "MOD",
     EQ: "EQ",
     GT: "GT",
     LT: "LT",
@@ -167,6 +168,8 @@ function scanToken(text) {
             return {type: TOK_TYPE.MULT, val: null, prec: 3} 
         case "div":
             return {type: TOK_TYPE.DIV, val: null, prec: 3} 
+        case "mod":
+            return {type: TOK_TYPE.MOD, val: null, prec: 3} 
         case "==":
             return {type: TOK_TYPE.EQ, val: null, prec: 1};
         case ">":
