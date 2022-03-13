@@ -63,8 +63,12 @@ export default function parse(toks, src_file_path, proj_path) {
                         let file_path_tok = line.shift();
                         if (file_path_tok === undefined || file_path_tok.type !== TOK_TYPE.STRING) compiler_error(tok.pos, "Invalid or missing include file path");
                         let file_path = path.normalize(file_path_tok.val);
+                        // Reserve paths for std library
+                        if (file_path === "std/std.gb") {
+                            file_path = path.relative(path.dirname(src_file_path), path.join(proj_path, file_path));
+                        }
                         if (included_files.has(file_path)) compiler_error(file_path_tok.pos, `\"${file_path_tok.val}\" has already been included`);
-                        included_files.add(file_path); //  Avoid circular dependencies
+                        included_files.add(file_path) //  Avoid circular dependencies
                         let inc_text = readFileSync(file_path, {encoding:"utf8", flag: "r"}, (err, data) => {
                             if (err) compiler_error(file_path.pos, `Error while reading file at ${file_path.val}`);
                         });
