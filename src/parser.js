@@ -64,8 +64,8 @@ export default function parse(toks, src_file_path, proj_path) {
                         if (file_path_tok === undefined || file_path_tok.type !== TOK_TYPE.STRING) compiler_error(tok.pos, "Invalid or missing include file path");
                         let file_path = path.normalize(file_path_tok.val);
                         // Reserve paths for std library
-                        if (file_path === "std/std.gb") {
-                            file_path = path.relative(path.dirname(src_file_path), path.join(proj_path, file_path));
+                        if (file_path_tok.val === "std/std.gb") {
+                            file_path = path.relative(path.resolve(), path.join(proj_path, file_path));
                         }
                         if (included_files.has(file_path)) compiler_error(file_path_tok.pos, `\"${file_path_tok.val}\" has already been included`);
                         included_files.add(file_path) //  Avoid circular dependencies

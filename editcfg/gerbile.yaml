@@ -13,9 +13,9 @@ rules:
     # - symbol.brackets: "(\\(|\\))"
     - statement: "\\b(call|proc|in|do|end|mem|include|ret|dec)\\b"
     - statement: "\\b(if|elif|else|endif|==|!=|>=|<=|>|<)\\b"
-    - statement: "\\b(add|sub|mul|div|loop|and|or)\\b"
+    - statement: "\\b(add|sub|mul|div|mod|loop|and|or)\\b"
     - constant: "\\b(yes|no)\\b"
-    - type: "\\b(int|bool|str)\\b"
+    - type: "\\b(int|bool|addr)\\b"
 
     # - constant: "/[^*]([^/]|(\\\\/))*[^\\\\]/[gim]*"
     - constant: "\\\\[0-7][0-7]?[0-7]?|\\\\x[0-9a-fA-F]+|\\\\[bfnrt'\"\\?\\\\]"
