@@ -1,5 +1,5 @@
 import tokenize from "./src/lex.js";
-import parse from "./src/parser.js";
+import Parser from "./src/parser.js";
 import { readFileSync, writeFileSync } from "fs";
 import { run_command } from "./src/utils.js";
 import { ArgumentParser } from "argparse";
@@ -28,7 +28,8 @@ let text = readFileSync(args.SRC_FILE, {encoding:"utf8", flag:"r"}, (err, data) 
 let toks = tokenize(path.normalize(args.SRC_FILE), text);
 if (args.tokens) console.log(toks);
 
-let asm = parse(toks, args.SRC_FILE, __dirname);
+let asm_gen = new Parser(__dirname);
+let asm = asm_gen.generate(toks, args.SRC_FILE);
 if (args.asm) console.log(asm);
 
 writeFileSync(`${args.SRC_FILE}.asm`, asm, (err) => {
