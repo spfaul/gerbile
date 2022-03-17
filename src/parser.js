@@ -18,16 +18,17 @@ export default class Parser {
 
     generate(toks, src_file_path) {
         this.data = "segment readable writable\n" +
-                   "mem rb 600000\n" + 
-                   "mem_ptr dq 0\n";
+                    "mem rb 600000\n" + 
+                    "mem_ptr dq 0\n";
         this.text = "format ELF64 executable 3\n" +
                     "segment readable executable\n" +
                     "entry main\n" +
-                    `include \"${path.relative(path.dirname(src_file_path), path.join(this.proj_path, "std/std.asm"))}\"\n`;
+                    `include \"${path.relative(path.dirname(src_file_path), path.join(this.proj_path, "std/core.asm"))}\"\n`;
         this.included_files = new Set([path.normalize(src_file_path)]);
         this.addr_count = 0;
         this.str_lit_count = 0;
         this.memorys_count = 0;
+        this.ftable = new Map();
         this.parse(toks, src_file_path);
         return this.text + this.data
     }
@@ -60,17 +61,19 @@ export default class Parser {
                                     if (err) compiler_error(file_path.pos, `Error while reading file at "${file_path_tok.val}": ${err}`);
                                 });
                             } catch (err) {
+                                // No file error doesn't get returned into the callback :)
                                 if (err.code === "ENOENT") compiler_error(file_path_tok.pos, `File at "${file_path_tok.val}" does not exist`);
                                 throw err;
                             }
-                            let inc_toks = tokenize(file_path, inc_text);
-                            this.parse(inc_toks, file_path);
+                            this.parse(tokenize(file_path, inc_text), file_path);
                         }
                         break;
                     case TOK_TYPE.FUNC:
                         if (curr_func_def != null) compiler_error(tok.pos, "Cannot define subproc inside proc");
                         let func_name = line.shift();
                         if (func_name === undefined || func_name.type !== TOK_TYPE.IDENTIFIER) compiler_error("Invalid or missing function name");
+                        if (this.ftable.has(func_name.val)) compiler_error(func_name.pos, `Proc "${func_name.val}" has already been declared`);
+                        else this.ftable.set(func_name.val, {}); // TODO: STORE FUNCTION SIGNATURE IN FTABLE
                         this.text += `${func_name.val}:\n`;
                         curr_func_def = func_name.val;
                         var_map = new Map();
@@ -208,7 +211,7 @@ export default class Parser {
                                                       var_offset,
                                                       var_map);
                             line[0].val = "IF";
-                            if (line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for IF statement, found nothing");
+                            if (!line[0] | line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for IF statement, found nothing");
                             this.text += "    mov rcx, 0\n" +
                                     "    pop rsi\n" +
                                     "    cmp rcx, rsi\n" +
@@ -225,7 +228,7 @@ export default class Parser {
                             this.eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
                                                       var_offset,
                                                       var_map);
-                            if (line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for ELSE IF statement, found nothing");
+                            if (!line[0] | line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for ELSE IF statement, found nothing");
                             line[0].val = "IF";
                             this.text += "    mov rcx, 0\n" +
                                     "    pop rsi\n" +
@@ -246,7 +249,7 @@ export default class Parser {
                                         "    pop rsi\n" +
                                         "    cmp rcx, rsi\n" +
                                         `    je addr_${this.addr_count+1}\n`;
-                            if (line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for LOOP statement, found nothing");                        
+                            if (!line[0] | line[0].type !== TOK_TYPE.BRANCH_OPEN) compiler_error(tok.pos, "Expected 'do' for LOOP statement, found nothing");                        
                             line[0].val = "WHILE";
                             this.addr_count += 2;
                         }
