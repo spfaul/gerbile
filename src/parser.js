@@ -1,5 +1,5 @@
 import tokenize, { TOK_TYPE, TYPE_TO_SIZE } from "./lex.js";
-import { compiler_error } from "./utils.js";
+import { compiler_error, atod, get_subreg } from "./utils.js";
 import path from "path";
 import assert from "assert";
 import { readFileSync } from "fs";
@@ -10,34 +10,6 @@ const SIZE_TO_DIRECTIVE = new Map([
     [1, "byte"],
     [8, "qword"]
 ]);
-const REGS = new Map([
-    ["rax", ["eax", "ax", "al"]],
-    ["rcx", ["ecx", "cx", "cl"]],
-    ["rdx", ["edx", "dx", "dl"]],
-    ["rbx", ["ebx", "bx", "bl"]],
-    ["rsi", ["esi", "si", "sil"]],
-    ["rdi", ["edi", "di", "dil"]],
-    ["rsp", ["esp", "sp", "spl"]],
-    ["rbp", ["ebp", "bp", "bpl"]],
-    ["r8" , ["r8d", "r8w", "r8b"]],
-    ["r9" , ["r9d", "r9w", "r9b"]],
-    ["r10", ["r10d", "r10w", "r10b"]],
-    ["r11", ["r11d", "r11w", "r11b"]],
-    ["r12", ["r12d", "r12w", "r12b"]],
-    ["r13", ["r13d", "r13w", "r13b"]],
-    ["r14", ["r14d", "r14w", "r14b"]],
-    ["r15", ["r15d", "r15w", "r15b"]]    
-]);
-
-function get_subreg(reg, size) {
-    if (!REGS.has(reg)) compiler_error("GET_SUBREG", `Unknown register name ${reg}`);
-    if (size === 8) return reg;
-    let subregs = REGS.get(reg);
-    if (size === 1) return subregs[2];
-    else if (size === 2) return subregs[1];
-    else if (size === 4) return subregs[0];
-    else compiler_error("GET_SUBREG", `Invalid size ${size}`);
-}
 
 export default class Parser {
     constructor(proj_path) {
@@ -82,9 +54,15 @@ export default class Parser {
                             }
                             if (this.included_files.has(file_path)) compiler_error(file_path_tok.pos, `\"${file_path_tok.val}\" has already been included`);
                             this.included_files.add(file_path) //  Avoid circular dependencies
-                            let inc_text = readFileSync(file_path, {encoding:"utf8", flag: "r"}, (err, data) => {
-                                if (err) compiler_error(file_path.pos, `Error while reading file at ${file_path.val}`);
-                            });
+                            let inc_text;
+                            try {
+                                inc_text = readFileSync(file_path, {encoding:"utf8", flag: "r"}, (err, data) => {
+                                    if (err) compiler_error(file_path.pos, `Error while reading file at "${file_path_tok.val}": ${err}`);
+                                });
+                            } catch (err) {
+                                if (err.code === "ENOENT") compiler_error(file_path_tok.pos, `File at "${file_path_tok.val}" does not exist`);
+                                throw err;
+                            }
                             let inc_toks = tokenize(file_path, inc_text);
                             this.parse(inc_toks, file_path);
                         }
@@ -481,13 +459,3 @@ export default class Parser {
         return out_stack;
     }
 }
-
-function atod(str) {
-    let charCodeArray = [];
-    for (let i=0; i<str.length; i++) {
-        charCodeArray.push(str.charCodeAt(i));
-    }
-    return charCodeArray.join(", ");   
-}
-
-
