@@ -1,12 +1,15 @@
 # gerbile
 
-Unoptimized, lightweight AOT compiled language, powered by Javascript.
-
-Hobbyist project, might not be maintained unless I feel like it.
+Lightweight, unsafe AOT compiled language for x86_64 Linux, powered by Javascript.
 
 - Supported Types
   - [x] int (64-bit)
   - [x] bool
   - [x] strings
-  - [ ] float
-  
+
+See `examples/` for more info.
+
+# Usage
+```bash
+> npm run com --help
+```
