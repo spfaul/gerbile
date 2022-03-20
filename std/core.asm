@@ -245,5 +245,5 @@ strlen:
     pop rcx
     pop rbx
     pop rdi
-    ret    
+    ret      
     

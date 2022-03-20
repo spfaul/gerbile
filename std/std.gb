@@ -37,3 +37,15 @@ proc println_int in int n dec
     call print_int n end
     call print "\n" end
 end
+
+proc pow in int base int exp dec
+    if exp == 0 do
+        ret 1
+    endif
+    int temp = call pow base exp div 2 end
+    if exp mod 2 == 0 do
+        ret temp mul temp
+    end else do
+        ret base mul temp mul temp
+    endif
+end

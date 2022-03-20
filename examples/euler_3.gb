@@ -1,3 +1,5 @@
+// Solution to problem 3 of Project Euler
+
 include "std/std.gb"
 
 proc main in

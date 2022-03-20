@@ -179,6 +179,7 @@ export default class Parser {
                         break;
                     case TOK_TYPE.PARAM:
                         {  
+                            identifiers.reverse();
                             while (identifiers.length > 0) {
                                 let iden = identifiers.pop();
                                 if (iden.val_type === null) compiler_error(tok.pos, `New variable \"${iden.val}\" must be declared with a type`);
