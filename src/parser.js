@@ -5,7 +5,7 @@ import assert from "assert";
 import { readFileSync } from "fs";
 
 const RAW_VALUES = new Set([TOK_TYPE.INT, TOK_TYPE.BOOL]);
-const TOP_LEVEL = new Set([TOK_TYPE.INCLUDE, TOK_TYPE.FUNC, TOK_TYPE.DEF_OPEN, TOK_TYPE.COMMENT]);
+const TOP_LEVEL = new Set([TOK_TYPE.INCLUDE, TOK_TYPE.FUNC, TOK_TYPE.DEF_OPEN, TOK_TYPE.COMMENT, TOK_TYPE.MACRO]);
 const SIZE_TO_DIRECTIVE = new Map([
     [1, "byte"],
     [8, "qword"]
@@ -29,6 +29,7 @@ export default class Parser {
         this.str_lit_count = 0;
         this.memorys_count = 0;
         this.ftable = new Map();
+        this.mtable = new Map();
         this.parse(toks, src_file_path);
         return this.text + this.data
     }
@@ -151,11 +152,10 @@ export default class Parser {
                         }
                         break;
                     case TOK_TYPE.IDENTIFIER:
-                        if (var_map.has(tok.val)) {
+                        if (var_map.has(tok.val))
                             identifiers.push(Object.assign(tok, var_map.get(tok.val)));
-                        } else {
+                        else
                             compiler_error(tok.pos, `Undeclared identifier ${tok.val}`);
-                        }
                         break;
                     case TOK_TYPE.ASSIGN:
                         {
