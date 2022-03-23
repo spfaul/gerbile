@@ -6,7 +6,7 @@ proc main in
     call println_int arg_count end
     call println path end
 
-    loop in arg_count sub 1 end != 0 do
+    loop arg_count sub 1 != 0 do
         addr arg =
         call println arg end
         arg_count = arg_count sub 1

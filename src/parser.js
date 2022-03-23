@@ -255,6 +255,9 @@ export default class Parser {
                             this.addr_count += 2;
                         }
                         break;
+                    default:
+                        compiler_error(tok.pos, `Unexpected or unhandled ${tok.type}`);
+                        break;
                 }
             }
             if (identifiers.length > 0) compiler_error(identifiers[0].pos, `Unhandled identifier \"${identifiers[0].val}\"`);
