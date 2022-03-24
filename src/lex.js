@@ -83,6 +83,7 @@ export default function tokenize(filename, text) {
             if (val) {
                 let tok = scanToken(val);
                 tok.pos = `[${filename}] ${curr_line}:${curr_char - val.length}`;
+                tok.file = filename;
                 curr_line_toks.push(tok);
                 val = "";
             }
@@ -90,7 +91,7 @@ export default function tokenize(filename, text) {
             val += c;
             let tok = scanToken(val);
             tok.pos = `[${filename}] ${curr_line}:${curr_char - val.length + 1}`;
-            tok.filename = filename;
+            tok.file = filename;
             curr_line_toks.push(tok);
             toks.push(curr_line_toks);
         } else {

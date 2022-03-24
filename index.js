@@ -29,8 +29,8 @@ let text = readFileSync(args.SRC_FILE, {encoding:"utf8", flag:"r"}, (err, data) 
 let toks = tokenize(path.normalize(args.SRC_FILE), text);
 if (args.tokens) console.log(toks);
 
-let preproc = new Preprocessor();
-toks = preproc.process(toks);
+let preproc = new Preprocessor(__dirname);
+toks = preproc.process(toks, args.SRC_FILE);
 
 let asm_gen = new Parser(__dirname);
 let asm = asm_gen.generate(toks, args.SRC_FILE);

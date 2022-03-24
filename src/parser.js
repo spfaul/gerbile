@@ -45,30 +45,6 @@ export default class Parser {
                 let tok = line.shift();
                 if (curr_func_def == null && !TOP_LEVEL.has(tok.type)) compiler_error(tok.pos, "Keyword not allowed at top level!");
                 switch (tok.type) {
-                    case TOK_TYPE.INCLUDE:
-                        {
-                            let file_path_tok = line.shift();
-                            if (file_path_tok === undefined || file_path_tok.type !== TOK_TYPE.STRING) compiler_error(tok.pos, "Invalid or missing include file path");
-                            let file_path = path.relative(path.dirname(src_file_path), file_path_tok.val);
-                            // Reserve paths for std library
-                            if (file_path_tok.val === "std/std.gb") {
-                                file_path = path.relative(path.resolve(), path.join(this.proj_path, file_path_tok.val));
-                            }
-                            if (this.included_files.has(file_path)) compiler_error(file_path_tok.pos, `\"${file_path_tok.val}\" has already been included`);
-                            this.included_files.add(file_path) //  Avoid circular dependencies
-                            let inc_text;
-                            try {
-                                inc_text = readFileSync(file_path, {encoding:"utf8", flag: "r"}, (err, data) => {
-                                    if (err) compiler_error(file_path.pos, `Error while reading file at "${file_path_tok.val}": ${err}`);
-                                });
-                            } catch (err) {
-                                // No file error doesn't get returned into the callback :)
-                                if (err.code === "ENOENT") compiler_error(file_path_tok.pos, `File at "${file_path_tok.val}" does not exist`);
-                                throw err;
-                            }
-                            this.parse(tokenize(file_path, inc_text), file_path);
-                        }
-                        break;
                     case TOK_TYPE.FUNC:
                         if (curr_func_def != null) compiler_error(tok.pos, "Cannot define subproc inside proc");
                         let func_name = line.shift();

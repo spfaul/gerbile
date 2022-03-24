@@ -1,5 +1,9 @@
+macro INT_SIZE 8
+macro ADDR_SIZE 8
+macro BOOL_SIZE 1
+
 proc sleep in int time dec
-    mem time_mem 8
+    mem time_mem INT_SIZE
     time_mem = time
     call scall2 35 time_mem 0 end
 end
@@ -22,13 +26,13 @@ proc write in int fd addr s dec
     call scall3 1 fd s call strlen s end end
 end
 
-proc open in addr s int flag dec
-    int fd = call scall3 2 s flag 420 end
+proc open in addr path int flag dec
+    int fd = call scall3 2 path flag 420 end
     ret fd
 end
 
 proc read in int fd int size dec
-    mem s 20
+    mem s 50
     call scall3 0 fd s size end 
     ret s
 end
@@ -48,4 +52,16 @@ proc pow in int base int exp dec
     end else do
         ret base mul temp mul temp
     endif
+end
+
+proc dec_to_oct in int n dec
+    int oct_repr = 0
+    int exp = 0
+    loop n > 0 do
+        int digit = n mod 10
+        oct_repr = oct_repr add digit mul call pow 8 exp end
+        exp = exp add 1
+        n = n div 10
+    end
+    ret oct_repr
 end
