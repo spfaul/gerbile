@@ -13,7 +13,7 @@ rules:
     # - symbol.brackets: "(\\(|\\))"
     - statement: "\\b(call|proc|in|do|end|mem|include|ret|dec)\\b"
     - statement: "\\b(if|elif|else|endif|==|!=|>=|<=|>|<)\\b"
-    - statement: "\\b(add|sub|mul|div|mod|loop|and|or)\\b"
+    - statement: "\\b(add|sub|mul|div|mod|loop|and|or|macro)\\b"
     - constant: "\\b(yes|no)\\b"
     - type: "\\b(int|bool|addr)\\b"
 
@@ -23,13 +23,6 @@ rules:
     - constant.string:
         start: "\""
         end: "\""
-        skip: "\\\\."
-        rules:
-            - constant.specialChar: "\\\\."
-
-    - constant.string:
-        start: "'"
-        end: "'"
         skip: "\\\\."
         rules:
             - constant.specialChar: "\\\\."
