@@ -24,7 +24,6 @@ export default class Parser {
                     "segment readable executable\n" +
                     "entry main\n" +
                     `include \"${path.relative(path.dirname(src_file_path), path.join(this.proj_path, "std/core.asm"))}\"\n`;
-        this.included_files = new Set([path.normalize(src_file_path)]);
         this.addr_count = 0;
         this.str_lit_count = 0;
         this.memorys_count = 0;
@@ -220,8 +219,8 @@ export default class Parser {
                             return_addrs.push(this.addr_count); // loop branch
                             this.text += `addr_${this.addr_count}:\n`
                             this.eval_expr(line.splice(0, line.findIndex(t => t.type === TOK_TYPE.BRANCH_OPEN)),
-                                                      var_offset,
-                                                      var_map);
+                                                        var_offset,
+                                                        var_map);
                             this.text += "    mov rcx, 0\n" +
                                         "    pop rsi\n" +
                                         "    cmp rcx, rsi\n" +
@@ -365,38 +364,42 @@ export default class Parser {
                 let param_toks = [];
                 this.text += `    add [mem_ptr], ${var_offset}\n`;
                 while (res_stack.length && res_stack.at(-1).type !== TOK_TYPE.DEF_CLOSE) {
-                    param_toks.push(res_stack.pop()); // b a
+                    param_toks.unshift(res_stack.pop());
                 }
                 res_stack.pop(); // Discard DEF_CLOSE
-                // Push args onto stack from nth to 1st arg
-                let func_call_var_offset = 0;
-                for (let i=1; i<param_toks.length; i++) {
-                    func_call_var_offset += param_toks[i].size;
-                }
-                for (let param_tok of param_toks) {
-                    this.text += "    mov rax, [mem_ptr]\n";
-                    if (param_tok.type === "REF") {
-                        this.text += "    pop rsi\n" +
-                                `    mov ${SIZE_TO_DIRECTIVE.get(param_tok.size)}[mem + rax + ${func_call_var_offset}], ${get_subreg("rsi", param_tok.size)}\n`;
-                    } else {
-                        this.text += `    mov ${SIZE_TO_DIRECTIVE.get(param_tok.size)}[mem + rax + ${func_call_var_offset}], ${param_tok.val}\n`;
-                    }
-                    func_call_var_offset -= param_tok.size;
-                }
-                this.text += `    call ${tok.val}\n` +
-                        `    sub [mem_ptr], ${var_offset}\n` +
-                        "    push rsi\n";
+                this.call_func(tok.val, param_toks, var_offset);
                 res_stack.push({type: "REF", size: 8}); // TODO: dynamic return value size
             } else if (tok.type === TOK_TYPE.DEF_CLOSE) {
                 res_stack.push(tok);
             }
         }
-        // TODO: do a seperate check of RPN toks beforehand
         if (res_stack.length > 1) compiler_error(res_stack.at(-1).pos, `Unexpected token in expression`);
         if (res_stack.length == 1 && RAW_VALUES.has(res_stack[0].type)) {
             this.text += `    mov rsi, ${res_stack[0].val}\n` +
                     `    push rsi\n`;
         }
+    }
+
+    call_func(func_name, param_toks, var_offset) {
+        param_toks.reverse();
+        // Push args onto stack from nth to 1st arg
+        let func_call_var_offset = 0;
+        for (let i=1; i<param_toks.length; i++) {
+            func_call_var_offset += param_toks[i].size;
+        }
+        for (let param_tok of param_toks) {
+            this.text += "    mov rax, [mem_ptr]\n";
+            if (param_tok.type === "REF") {
+                this.text += "    pop rsi\n" +
+                             `    mov ${SIZE_TO_DIRECTIVE.get(param_tok.size)}[mem + rax + ${func_call_var_offset}], ${get_subreg("rsi", param_tok.size)}\n`;
+            } else {
+                this.text += `    mov ${SIZE_TO_DIRECTIVE.get(param_tok.size)}[mem + rax + ${func_call_var_offset}], ${param_tok.val}\n`;
+            }
+            func_call_var_offset -= param_tok.size;
+        }
+        this.text += `    call ${func_name}\n` +
+                     `    sub [mem_ptr], ${var_offset}\n` +
+                     "    push rsi\n";
     }
 
     shunting_yard(toks) {
