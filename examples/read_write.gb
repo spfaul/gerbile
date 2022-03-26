@@ -1,0 +1,8 @@
+include "std/std.gb"
+
+proc main do
+    int fd = call open "hello.txt" O_CREAT add O_WRONLY end
+    call write fd "HELLO!!!" end
+    call close fd end
+    ret 0
+end

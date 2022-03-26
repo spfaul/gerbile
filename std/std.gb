@@ -1,3 +1,8 @@
+macro O_RDONLY 0
+macro O_WRONLY 1
+macro O_RDWR 2
+macro O_CREAT 64
+macro O_APPEND 1024
 macro INT_SIZE 8
 macro ADDR_SIZE 8
 macro BOOL_SIZE 1
@@ -23,7 +28,7 @@ proc close in int fd dec
 end
 
 proc write in int fd addr s dec
-    call scall3 1 fd s call strlen s end end
+    call scall3 1 fd s call strlen s end sub 1 end
 end
 
 proc open in addr path int flag dec
@@ -31,10 +36,8 @@ proc open in addr path int flag dec
     ret fd
 end
 
-proc read in int fd int size dec
-    mem s 50
+proc read in int fd addr s int size dec
     call scall3 0 fd s size end 
-    ret s
 end
 
 proc println_int in int n dec
