@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import tokenize from "./src/lex.js";
 import Parser from "./src/parser.js";
 import Preprocessor from "./src/preprocess.js";

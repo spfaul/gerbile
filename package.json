@@ -1,11 +1,12 @@
 {
   "name": "gerbile",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "General purpose programming language for x86_64 Linux",
   "main": "index.js",
   "scripts": {
     "com": "node index.js"
   },
+  "bin": "./index.js",
   "type": "module",
   "author": "",
   "license": "GPL-2.0-only",
