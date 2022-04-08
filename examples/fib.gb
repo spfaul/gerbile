@@ -1,8 +1,9 @@
 include "std/std.gb"
+macro FIB_MAX 20
 
 proc main in
     int i = 1
-    loop i < 20 do
+    loop i < FIB_MAX do
         call print_int call fib i end end
         call print " " end
         i = i add 1

@@ -1,7 +1,7 @@
 include "std/std.gb"
+macro FIZZBUZZ_CAP 20
 
 proc main in
-    int FIZZBUZZ_CAP = 20
     int i = 0
     loop i < FIZZBUZZ_CAP do
         if i mod 15 == 0 do
